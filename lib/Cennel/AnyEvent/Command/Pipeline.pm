@@ -2,6 +2,7 @@ package Cennel::AnyEvent::Command::Pipeline;
 use strict;
 use warnings;
 use Scalar::Util qw(weaken);
+use Encode;
 use AnyEvent;
 use AnyEvent::Handle;
 use AnyEvent::Command::Pipeline;
@@ -64,7 +65,7 @@ sub cinnamon_descriptors {
         my $on_line_read; $on_line_read = sub {
             if ($_[1] =~ /^password (\S*)$/) {
                 my $euser = $1;
-                my $user = decode_base64url $euser;
+                my $user = decode 'utf-8', decode_base64url $euser;
                 $self->cennel_with_password($user, sub {
                     my $pass = encode_base64url $_[0];
                     $write_handle->push_write("password $euser $pass\n");
