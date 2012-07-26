@@ -31,11 +31,11 @@ sub on_stdout {
     return $_[0]->{on_stdout} || sub {
         my ($self, %args) = @_;
         if (defined $args{message}) {
-            print STDOUT join '',
+            print { $self->stdout } join '',
                 map { $args{action}->{action_id} . ': ' . $_ . "\n" }
                 split /\x0D?\x0A/, $args{message}, -1;
         } else {
-            print STDOUT $args{action}->{action_id} . ": End of stdout\n";
+            print { $self->stdout } $args{action}->{action_id} . ": End of stdout\n";
         }
     };
 }
@@ -47,13 +47,27 @@ sub on_stderr {
     return $_[0]->{on_stderr} || sub {
         my ($self, %args) = @_;
         if (defined $args{message}) {
-            print STDERR join '',
+            print { $self->stderr } join '',
                 map { $args{action}->{action_id} . ': ' . $_ . "\n" }
                 split /\x0D?\x0A/, $args{message};
         } else {
-            print STDERR $args{action}->{action_id} . ": End of stderr\n";
+            print { $self->stderr } $args{action}->{action_id} . ": End of stderr\n";
         }
     };
+}
+
+sub stdout {
+    if (@_ > 1) {
+        $_[0]->{stdout} = $_[1];
+    }
+    return $_[0]->{stdout} || \*STDOUT;
+}
+
+sub stderr {
+    if (@_ > 1) {
+        $_[0]->{stderr} = $_[1];
+    }
+    return $_[0]->{stderr} || \*STDERR;
 }
 
 sub on_error {
