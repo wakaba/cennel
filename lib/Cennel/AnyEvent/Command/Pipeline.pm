@@ -24,6 +24,9 @@ sub new {
         $cv->send(0);
     });
 
+    $self->stdout(\*STDOUT);
+    $self->stderr(\*STDOUT);
+
     return $self;
 }
 
