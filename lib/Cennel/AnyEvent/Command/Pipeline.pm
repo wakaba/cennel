@@ -47,6 +47,13 @@ sub cinnamon_role {
     return $_[0]->{cinnamon_role} || die "cinnamon role is not set";
 }
 
+sub cinnamon_hosts {
+    if (@_ > 1) {
+        $_[0]->{cinnamon_hosts} = $_[1];
+    }
+    return $_[0]->{cinnamon_hosts};
+}
+
 sub cinnamon_descriptors {
     weaken (my $self = shift);
     return $self->{cinnamon_descriptors} ||= do {
@@ -125,10 +132,12 @@ sub cennel_cv {
 
 sub push_cinnamon {
     my ($self, $task, %args) = @_;
+    my $hosts = $self->cinnamon_hosts;
     $self->push_command([
         $self->cinnamon_command,
         $self->cinnamon_role,
         $task,
+        ($hosts ? '--hosts=' . join ',', @$hosts : ()),
         '--key-chain-fds=3,4',
     ], descriptors => $self->cinnamon_descriptors);
 }
