@@ -1,0 +1,27 @@
+[submodule "modules/wanage"]
+	path = modules/wanage
+	url = git://github.com/wakaba/wanage
+[submodule "modules/web-url"]
+	path = modules/web-url
+	url = git://github.com/wakaba/perl-web-url
+[submodule "modules/web-encodings"]
+	path = modules/web-encodings
+	url = git://github.com/wakaba/perl-web-encodings
+[submodule "modules/charclass"]
+	path = modules/charclass
+	url = git://github.com/wakaba/perl-charclass
+[submodule "modules/ooutils"]
+	path = modules/ooutils
+	url = git://github.com/wakaba/perl-ooutils
+[submodule "modules/web-utils"]
+	path = modules/web-utils
+	url = git://github.com/wakaba/perl-web-utils
+[submodule "modules/json-functions-xs"]
+	path = modules/json-functions-xs
+	url = git://github.com/wakaba/perl-json-functions-xs
+[submodule "modules/dongry"]
+	path = modules/dongry
+	url = git://github.com/wakaba/dongry
+[submodule "modules/rdb-utils"]
+	path = modules/rdb-utils
+	url = git://github.com/wakaba/perl-rdb-utils
