@@ -27,19 +27,28 @@ sub perl {
     return $_[0]->{perl} ||= $_[0]->root_d->file('perl')->stringify;
 }
 
-sub cennel_runner {
-    return $_[0]->{cennel_runner} ||= $_[0]->root_d->file('bin', 'cennel-runner.pl')->stringify;
+sub command_runner {
+    return $_[0]->{command_runner} ||= $_[0]->root_d->file('bin', 'command-runner.pl')->stringify;
 }
 
 sub run_repo_command_as_cv {
-    my ($self, $command) = @_;
+    my ($self, $command, $role_name, $host_name, $task_name) = @_;
     my $cv = AE::cv;
     $self->clone_as_cv->cb(sub {
         my $script_f = $self->temp_repo_d->file('config', 'cennel', $command . '.pl');
         if (-f $script_f) {
             my $json_f = $self->temp_repo_d->file('local', 'tmp', 'cennel-' . (rand 1000000) . '.json');
-            run_command(
-                [$self->perl, $self->cennel_runner, $script_f],
+            run_cmd(
+                [
+                    $self->perl,
+                    $self->cennel_runner,
+                    $self->temp_repo_d,
+                    $script_f->absolute,
+                    $role_name,
+                    $host_name,
+                    $task_name,
+                    $json_f,
+                ],
                 '>' => sub { $self->print_message($_[0]) if defined $_[0] },
                 '2>' => sub { $self->print_message($_[0]) if defined $_[0] },
             )->cb(sub {

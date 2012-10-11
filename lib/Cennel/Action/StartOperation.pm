@@ -22,6 +22,14 @@ sub operation {
     return $_[0]->{operation};
 }
 
+sub role_name {
+    return $_[0]->{role_name};
+}
+
+sub task_name {
+    return $_[0]->{task_name};
+}
+
 sub run_as_cv {
     my $self = shift;
     my $cv = AE::cv;
@@ -62,6 +70,7 @@ sub create_operation_record_as_cv {
         url => $repo_id,
         name => $args{role_name},
     }, source_name => 'master');
+    $self->{role_name} = $args{role_name};
 
     my $ops_db = $self->dbreg->load('cennelops');
 
@@ -79,8 +88,9 @@ sub create_operation_record_as_cv {
     my $op_row = $ops_db->select('operation', {
         operation_id => $op_id,
     }, source_name => 'master');
+    $self->{task_name} = $args{task_name};
     
-    $_[0]->{operation} = Cennel::Object::Operation->new_from_rows(
+    $self->{operation} = Cennel::Object::Operation->new_from_rows(
         operation_row => $op_row,
         repository_row => $repo_row,
     );
@@ -98,7 +108,7 @@ sub get_target_host_list_as_cv {
         push @$log, $_[0];
     });
     my $cv = AE::cv;
-    $repo->run_repo_command_as_cv('get-hosts')->cb(sub {
+    $repo->run_repo_command_as_cv('get-hosts', $self->role_name, '', $self->task_name)->cb(sub {
         if (@$log) {
             my $ops_db = $self->dbreg->load('cennelops');
             my $op_id = $self->operation->operation_id;

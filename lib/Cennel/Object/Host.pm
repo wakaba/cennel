@@ -10,4 +10,8 @@ sub host_id {
     return $_[0]->{host_row}->get('host_id');
 }
 
+sub host_name {
+    return $_[0]->{host_row}->get('name');
+}
+
 1;

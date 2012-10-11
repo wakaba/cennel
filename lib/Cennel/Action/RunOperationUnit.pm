@@ -5,6 +5,8 @@ use AnyEvent;
 use Cennel::Defs::Statuses;
 use Cennel::Git::Repository;
 use Cennel::Object::Operation;
+use Cennel::Object::Host;
+use Cennel::Object::Role;
 
 sub new_from_dbreg_and_cached_repo_set_d_and_job_row {
     return bless {
@@ -29,6 +31,14 @@ sub operation_unit_job_row {
 
 sub operation {
     return $_[0]->{operation};
+}
+
+sub role {
+    return $_[0]->{role};
+}
+
+sub host {
+    return $_[0]->{host};
 }
 
 sub task_name {
@@ -102,6 +112,8 @@ sub open_record_as_cv {
         operation_row => $op_row,
         repository_row => $repo_row,
     );
+    $self->{role} = Cennel::Object::Role->new_from_row($role_row);
+    $self->{host} = Cennel::Object::Host->new_from_row($host_row) if $host_row;
     
     $cv->send({});
     return $cv;
@@ -151,7 +163,7 @@ sub run_action_as_cv {
             $cv->send({});
         });
     } else {
-        $repo->run_repo_command_as_cv($task_name)->cb(sub {
+        $repo->run_repo_command_as_cv($task_name, $self->role->role_name, $self->host ? $self->host->host_name : '', $self->task_name)->cb(sub {
             if ($_[0]->recv) {
                 $cv->send({failed => 1, retry => 0, phase => 'run_action'});
             } else {
