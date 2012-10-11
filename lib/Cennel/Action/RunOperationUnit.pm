@@ -1,0 +1,188 @@
+package Cennel::Action::RunOperationUnit;
+use strict;
+use warnings;
+use AnyEvent;
+use Cennel::Defs::Statuses;
+use Cennel::Git::Repository;
+use Cennel::Object::Operation;
+
+sub new_from_dbreg_and_cached_repo_set_d_and_job_row {
+    return bless {
+        dbreg => $_[1],
+        cached_repo_set_d => $_[2],
+        operation_unit_job_row => $_[3],
+        log => [],
+    }, $_[0];
+}
+
+sub dbreg {
+    return $_[0]->{dbreg};
+}
+
+sub cached_repo_set_d {
+    return $_[0]->{cached_repo_set_d};
+}
+
+sub operation_unit_job_row {
+    return $_[0]->{operation_unit_job_row};
+}
+
+sub operation {
+    return $_[0]->{operation};
+}
+
+sub task_name {
+    return $_[0]->operation->task_name;
+}
+
+sub run_as_cv {
+    my $self = shift;
+    my $cv = AE::cv;
+    $self->open_record_as_cv->cb(sub {
+        my $result = $_[0]->recv;
+        unless ($result->{failed}) {
+            $self->check_preconditions_as_cv->cb(sub {
+                my $result = $_[0]->recv;
+                unless ($result->{failed}) {
+                    $self->run_action_as_cv->cb(sub {
+                        my $result = $_[0]->recv;
+                        $self->close_record_as_cv($result)->cb(sub {
+                            $cv->send($result);
+                        });
+                    });
+                } else {
+                    $self->close_record_as_cv($result)->cb(sub {
+                        $cv->send($result);
+                    });
+                }
+            });
+        } else {
+            $self->close_record_as_cv($result)->cb(sub {
+                $cv->send($result);
+            });
+        }
+    });
+    return $cv;
+}
+
+sub open_record_as_cv {
+    my $self = shift;
+    my $cv = AE::cv;
+
+    my $job_row = $self->operation_unit_job_row;
+    
+    my $defs_db = $self->dbreg->load('cennel');
+    my $ops_db = $self->dbreg->load('cennelops');
+
+    my $operation_unit_id = $job_row->get('operation_unit_id');
+    $self->{operation_unit_id} = $operation_unit_id;
+    my $unit_row = $ops_db->select('operation_unit', {operation_unit_id => $operation_unit_id});
+    my $op_row = $ops_db->select('operation', {operation_id => $unit_row->get('operation_id')});
+    my $host_id = $unit_row->get('host_id');
+    my $host_row = $host_id ? $defs_db->select('host', {host_id => $host_id}) : undef;
+    my $role_row = $defs_db->select('role', {role_id => $op_row->get('role_id')});
+    my $repo_row = $defs_db->select('repository', {repository_id => $op_row->get('repository_id')});
+    
+    $ops_db->execute(
+        'UPDATE `operation_unit` SET status = ? AND data = CONCAT(data, :data)',
+        {
+            status => OPERATION_UNIT_STATUS_STARTED,
+            data => (sprintf "[%s] operation unit started\n", scalar gmtime),
+        },
+        where => {operation_unit_id => $operation_unit_id},
+    );
+
+    unless ($unit_row and $op_row and (not $host_id or $host_row) and $role_row and $repo_row) {
+        push @{$self->{log}}, sprintf "[%s] data incomplete\n", scalar gmtime;
+        $cv->send({failed => 1, retry => 1, phase => 'open_record'});
+        return;
+    }
+
+    $self->{operation} = Cennel::Object::Operation->new_from_rows(
+        operation_row => $op_row,
+        repository_row => $repo_row,
+    );
+    
+    $cv->send({});
+    return $cv;
+}
+
+sub check_preconditions_as_cv {
+    my $self = shift;
+    my $cv = AE::cv;
+
+    my $task_name = $self->task_name;
+    if ($task_name eq 'end-operation') {
+        if ($self->dbreg->load('cennelops')->select(
+            'operation_unit',
+            {
+                operation_id => $self->operation->operation_id,
+                status => {-not_in => [
+                    OPERATION_UNIT_STATUS_FAILED,
+                    OPERATION_UNIT_STATUS_SUCCEEDED,
+                ]},
+            },
+            field => 'operation_unit_id',
+            limit => 1,
+        )->first) {
+            return {failed => 1, retry => 1, phase => 'check_preconditions'}
+        }
+    }
+
+    $cv->send({});
+    return $cv;
+}
+
+sub run_action_as_cv {
+    my $self = shift;
+    my $repo = Cennel::Git::Repository->new_from_operation_and_cached_repo_set_d(
+        $self->operation,
+        $self->cached_repo_set_d,
+    );
+    $repo->onmessage(sub {
+        push @{$self->{log}}, $_[0];
+    });
+    my $cv = AE::cv;
+    my $task_name = $self->task_name;
+    if ($task_name eq 'end-operation') {
+        require Cennel::Action::EndOperation;
+        my $action = Cennel::Action::EndOperation->new_from_dbreg_and_operation($self->dbreg, $self->operation);
+        $action->run_as_cv(sub {
+            $cv->send({});
+        });
+    } else {
+        $repo->run_repo_command_as_cv($task_name)->cb(sub {
+            if ($_[0]->recv) {
+                $cv->send({failed => 1, retry => 0, phase => 'run_action'});
+            } else {
+                $cv->send({});
+            }
+        });
+    }
+    return $cv;
+}
+
+sub close_record_as_cv {
+    my ($self, $result) = @_;
+    my $status = $result->{failed}
+        ? $result->{phase} eq 'check_preconditions'
+            ? OPERATION_UNIT_STATUS_PRECONDITION_FAILED
+            : OPERATION_UNIT_STATUS_FAILED
+        : OPERATION_UNIT_STATUS_SUCCEEDED;
+
+    my $ops_db = $self->dbreg->load('cennelops');
+    $ops_db->execute(
+        'UPDATE `operation_unit` SET status = ? AND data = CONCAT(data, :data)',
+        {
+            status => $status,
+            data => join '', @{$self->{log}}, (sprintf "[%s] operation unit finished\n", scalar gmtime),
+        },
+        where => {operation_unit_id => $self->operation_unit_id},
+    );
+
+    my $cv = AE::cv;
+    $cv->send;
+    return $cv;
+}
+
+1;
