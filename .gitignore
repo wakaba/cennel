@@ -1,1 +1,9 @@
 *~
+/perl
+/prove
+/deps/
+/local/
+/plackup
+/Makefile.setupenv
+/cin
+/config/perl/libs.txt

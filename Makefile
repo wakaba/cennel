@@ -1,27 +1,39 @@
 WGET = wget
-PERL = perl
+PERL = ./perl
+PROVE = ./prove
 GIT = git
-PERL_VERSION = 5.16.1
-PERL_ENV = PATH="$(abspath local/perlbrew/perls/perl-$(PERL_VERSION)/bin):$(abspath local/perl-$(PERL_VERSION)/pm/bin):$(PATH)"
 
 all:
 
-deps: git-submodules local-perl pmbp-install
+## ------ Setup ------
+
+deps: git-submodules pmbp-install
 
 git-submodules:
 	$(GIT) submodule update --init
 
-local/bin/pmbp.pl: always
+local/bin/pmbp.pl:
 	mkdir -p local/bin
 	$(WGET) -O $@ https://github.com/wakaba/perl-setupenv/raw/master/bin/pmbp.pl
 
-local-perl: local/bin/pmbp.pl
-	$(PERL_ENV) $(PERL) local/bin/pmbp.pl --perl-version $(PERL_VERSION) --install-perl
+pmbp-upgrade: local/bin/pmbp.pl
+	perl local/bin/pmbp.pl --update-pmbp-pl
 
-pmbp-update: local/bin/pmbp.pl
-	$(PERL_ENV) $(PERL) local/bin/pmbp.pl --update
+pmbp-update: pmbp-upgrade
+	perl local/bin/pmbp.pl --update
 
-pmbp-install: local/bin/pmbp.pl
-	$(PERL_ENV) $(PERL) local/bin/pmbp.pl --install
+pmbp-install: pmbp-upgrade
+	perl local/bin/pmbp.pl --install \
+	    --create-perl-command-shortcut perl \
+	    --create-perl-command-shortcut prove
+
+## ------ Tests ------
+
+test: test-deps test-main
+
+test-deps: deps
+
+test-main:
+	$(PROVE) t/action/*.t t/web/*.t
 
 always:
