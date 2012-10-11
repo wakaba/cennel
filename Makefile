@@ -32,8 +32,9 @@ pmbp-install: pmbp-upgrade
 test: test-deps test-main
 
 test-deps: deps
+	cd modules/rdb-utils && $(MAKE) deps
 
 test-main:
-	$(PROVE) t/action/*.t t/web/*.t
+	$(PROVE) t/integrated/*.t
 
 always:

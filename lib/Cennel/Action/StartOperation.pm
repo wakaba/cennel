@@ -35,8 +35,10 @@ sub run_as_cv {
     my $cv = AE::cv;
     $self->create_operation_record_as_cv(@_)->cb(sub {
         $self->get_target_host_list_as_cv($_[0]->recv)->cb(sub {
-            $self->insert_unit_jobs_as_cv($_[0]->recv)->cb(sub {
-                $cv->send;
+            $self->get_target_host_ids_as_cv($_[0]->recv)->cb(sub {
+                $self->insert_unit_jobs_as_cv($_[0]->recv)->cb(sub {
+                    $cv->send;
+                });
             });
         });
     });
@@ -48,34 +50,34 @@ sub create_operation_record_as_cv {
 
     my $def_db = $self->dbreg->load('cennel');
 
-    $def_db->insert('repository', {
+    $def_db->insert('repository', [{
         repository_id => $def_db->bare_sql_fragment('UUID_SHORT()'),
         name => defined $args{repository_name} && length $args{repository_name}
             ? $args{repository_name} : $args{repository_url},
         url => $args{repository_url},
         created => time,
-    }, duplicate => 'ignore');
+    }], duplicate => 'ignore');
     my $repo_row = $def_db->select('repository', {
         url => $args{repository_url},
-    }, source_name => 'master');
+    }, source_name => 'master')->first_as_row;
     my $repo_id = $repo_row->get('repository_id');
 
-    $def_db->insert('role', {
+    $def_db->insert('role', [{
         repository_id => $repo_id,
         role_id => $def_db->bare_sql_fragment('UUID_SHORT()'),
         name => $args{role_name},
         created => time,
-    }, duplicate => 'ignore');
+    }], duplicate => 'ignore');
     my $role_row = $def_db->select('role', {
-        url => $repo_id,
+        repository_id => $repo_id,
         name => $args{role_name},
-    }, source_name => 'master');
+    }, source_name => 'master')->first_as_row;
     $self->{role_name} = $args{role_name};
 
     my $ops_db = $self->dbreg->load('cennelops');
 
     my $op_id = $ops_db->execute('select uuid_short() as uuid')->first->{uuid};
-    $ops_db->insert('operation', {
+    $ops_db->insert('operation', [{
         operation_id => $op_id,
         repository_id => $repo_id,
         repository_branch => $args{repository_branch},
@@ -84,10 +86,10 @@ sub create_operation_record_as_cv {
         task_name => $args{task_name},
         status => OPERATION_UNIT_STATUS_STARTED,
         start_timestamp => time,
-    });
+    }]);
     my $op_row = $ops_db->select('operation', {
         operation_id => $op_id,
-    }, source_name => 'master');
+    }, source_name => 'master')->first_as_row;
     $self->{task_name} = $args{task_name};
     
     $self->{operation} = Cennel::Object::Operation->new_from_rows(
@@ -123,7 +125,7 @@ sub get_target_host_list_as_cv {
     return $cv;
 }
 
-sub insert_unit_jobs_as_cv {
+sub get_target_host_ids_as_cv {
     my ($self, $list) = @_;
 
     my $hosts = ref $list eq 'HASH' && $list->{hosts} && ref $list->{hosts} eq 'ARRAY' ? $list->{hosts} : [];

@@ -10,7 +10,7 @@ sub new_from_rows {
     }, $class;
 }
 
-sub operaton_row {
+sub operation_row {
     return $_[0]->{operation_row};
 }
 
