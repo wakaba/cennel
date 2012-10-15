@@ -144,13 +144,19 @@ sub cennel_cv {
 sub push_cinnamon {
     my ($self, $task, %args) = @_;
     my $hosts = $self->cinnamon_hosts;
-    $self->push_command([
-        $self->cinnamon_command,
-        $self->cinnamon_role,
-        $task,
-        ($hosts ? '--hosts=' . join ',', @$hosts : ()),
-        '--key-chain-fds=3,4',
-    ], descriptors => $self->cinnamon_descriptors);
+    $self->push_command(
+        [
+            $self->cinnamon_command,
+            $self->cinnamon_role,
+            $task,
+            ($hosts ? '--hosts=' . join ',', @$hosts : ()),
+            '--key-chain-fds=3,4',
+        ],
+        descriptors => $self->cinnamon_descriptors,
+        envs => {
+            PATH => $ENV{PMBP_ORIG_PATH} || $ENV{PATH},
+        },
+    );
 }
 
 1;

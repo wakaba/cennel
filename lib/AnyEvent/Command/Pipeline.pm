@@ -146,6 +146,7 @@ sub _run_next_action {
             ),
         );
 
+        local %ENV = (%ENV, %{$action->{envs} or {}});
         my $cv = run_cmd
             $action->{command},
             '>' => sub {
