@@ -1,14 +1,11 @@
 use strict;
 use warnings;
-use Cwd qw(abs_path);
+use Path::Class;
+use lib glob file(__FILE__)->dir->parent->subdir('modules', '*', 'lib')->absolute;
 
 my ($repo_dir_name, $script_file_name, $role_name, $host_name, $task_name, $json_file_name) = @ARGV;
 
-my $root_dir_name = __FILE__;
-$root_dir_name =~ s{[^/\\]+$}{};
-$root_dir_name ||= '.';
-$root_dir_name .= '/..';
-my $cinnamon = abs_path "$root_dir_name/cin";
+my $cinnamon = file(__FILE__)->dir->parent->file('cin')->absolute;
 
 chdir $repo_dir_name;
 
