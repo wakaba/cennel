@@ -197,12 +197,13 @@ sub close_record_as_cv {
 
     my $ops_db = $self->dbreg->load('cennelops');
     $ops_db->execute(
-        'UPDATE `operation_unit` SET status = ? AND data = CONCAT(data, :data)',
+        'UPDATE `operation_unit` SET status = ? AND data = CONCAT(data, :data)
+             WHERE operation_unit_id = ?',
         {
             status => $status,
             data => join '', @{$self->{log}}, (sprintf "[%s] operation unit finished\n", scalar gmtime),
+            operation_unit_id => $self->operation_unit_id,
         },
-        where => {operation_unit_id => $self->operation_unit_id},
     );
 
     my $cv = AE::cv;
