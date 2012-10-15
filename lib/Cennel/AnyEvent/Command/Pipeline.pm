@@ -131,7 +131,8 @@ sub push_cennel_set_password {
     my ($user, $password) = @_;
     $self->push_cb(sub {
         my $cv = AE::cv;
-        $self->{password}->{defined $user ? $user : ''} = $password;
+        $self->{password}->{defined $user ? $user : ''}
+            = ref $password eq 'CODE' ? $password->() : $password;
         $cv->send;
         return $cv;
     });
