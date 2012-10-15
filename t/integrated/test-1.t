@@ -30,6 +30,7 @@ test {
                 undef $c;
             } $c;
         };
-} wait => Test::Cennel::Server->create_as_cv;
+} wait => Test::Cennel::Server->create_as_cv,
+    name => 'insert', n => 1;
 
 run_tests;

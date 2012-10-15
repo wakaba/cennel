@@ -7,4 +7,9 @@ chdir $repo_dir_name;
 
 my $package = do $script_file_name or die $@;
 
-$package->run($role_name, $host_name, $task_name, $json_file_name);
+$package->run(
+    role_name => $role_name,
+    host_name => length $host_name ? $host_name : undef,
+    task_name => $task_name,
+    json_file_name => $json_file_name,
+);

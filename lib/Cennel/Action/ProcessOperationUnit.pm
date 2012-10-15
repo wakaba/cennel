@@ -46,9 +46,17 @@ sub get_job {
     )->first; # or undef
 }
 
+sub retry_job {
+    my ($self, $job) = @_;
+    $self->db->update(
+        'operation_unit_job',
+        {process_started => 1},
+        where => {operation_unit_id => $job->{operation_unit_id}},
+    );
+}
+
 sub complete_job {
     my ($self, $job) = @_;
-    return unless $job;
     $self->db->delete(
         'operation_unit_job',
         {operation_unit_id => $job->{operation_unit_id}},

@@ -12,6 +12,8 @@ sub define_schema {
     };
     $dbreg->{Registry}->{cennelops}->{schema} = {
         operation => {},
+        operation_unit => {},
+        operation_unit_job => {},
     };
 }
 

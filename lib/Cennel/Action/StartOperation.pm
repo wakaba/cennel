@@ -35,11 +35,16 @@ sub run_as_cv {
     my $cv = AE::cv;
     $self->create_operation_record_as_cv(@_)->cb(sub {
         $self->get_target_host_list_as_cv($_[0]->recv)->cb(sub {
-            $self->get_target_host_ids_as_cv($_[0]->recv)->cb(sub {
-                $self->insert_unit_jobs_as_cv($_[0]->recv)->cb(sub {
-                    $cv->send;
+            my $data = $_[0]->recv;
+            if ($data) {
+                $self->get_target_host_ids_as_cv($data)->cb(sub {
+                    $self->insert_unit_jobs_as_cv($_[0]->recv)->cb(sub {
+                        $cv->send;
+                    });
                 });
-            });
+            } else {
+                $cv->send;
+            }
         });
     });
     return $cv;
@@ -120,7 +125,8 @@ sub get_target_host_list_as_cv {
                 where => {operation_id => $op_id},
             );
         }
-        $cv->send($_[0]->recv);
+        my ($status, $data) = @{$_[0]->recv};
+        $cv->send($status ? undef : $data);
     });
     return $cv;
 }
@@ -149,13 +155,12 @@ sub get_target_host_ids_as_cv {
             'host',
             {name => {-in => $hosts}},
             fields => 'host_id',
-        );
+        )->all->map(sub { $_->{host_id} });
         $cv->send($host_ids);
     } else {
         $cv->send([]);
     }
 
-    $cv->send;
     return $cv;
 }
 
@@ -182,7 +187,7 @@ sub insert_unit_jobs_as_cv {
             {operation_id => $op_id},
             fields => 'operation_unit_id',
             source_name => 'master',
-        )->map(sub { $_[0]->{operation_unit_id} });
+        )->all->map(sub { $_->{operation_unit_id} });
         if (@$unit_ids) {
             $ops_db->insert(
                 'operation_unit_job',

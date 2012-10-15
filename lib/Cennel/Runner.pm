@@ -84,21 +84,26 @@ sub process_next_as_cv {
         $cv;
     };
 
-    my $action = Cennel::Action::RunOperationUnit->new_from_dbreg_and_cached_repo_set_d_and_job_row(
+    my $action = Cennel::Action::RunOperationUnit->new_from_dbreg_and_cached_repo_set_d_and_job_values(
         $self->dbreg,
         $self->cached_repo_set_d,
         $job,
     );
     my $cv = AE::cv;
     $action->run_as_cv->cb(sub {
-        $self->job_action->complete_job($job); # XXX
+        my $result = $_[0]->recv;
+        if ($result->{retry}) {
+            $self->job_action->retry_job($job);
+        } else {
+            $self->job_action->complete_job($job);
+        }
         $cv->send;
     });
     return $cv;
 }
 
 sub interval {
-    return 10;
+    return 2;
 }
 
 sub web_port {

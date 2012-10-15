@@ -8,11 +8,11 @@ use Cennel::Object::Operation;
 use Cennel::Object::Host;
 use Cennel::Object::Role;
 
-sub new_from_dbreg_and_cached_repo_set_d_and_job_row {
+sub new_from_dbreg_and_cached_repo_set_d_and_job_values {
     return bless {
         dbreg => $_[1],
         cached_repo_set_d => $_[2],
-        operation_unit_job_row => $_[3],
+        operation_unit_job_values => $_[3],
         log => [],
     }, $_[0];
 }
@@ -25,8 +25,12 @@ sub cached_repo_set_d {
     return $_[0]->{cached_repo_set_d};
 }
 
-sub operation_unit_job_row {
-    return $_[0]->{operation_unit_job_row};
+sub operation_unit_job_values {
+    return $_[0]->{operation_unit_job_values};
+}
+
+sub operation_unit_id {
+    return $_[0]->{operaton_unit_id};
 }
 
 sub operation {
@@ -79,19 +83,19 @@ sub open_record_as_cv {
     my $self = shift;
     my $cv = AE::cv;
 
-    my $job_row = $self->operation_unit_job_row;
+    my $job_values = $self->operation_unit_job_values;
     
     my $defs_db = $self->dbreg->load('cennel');
     my $ops_db = $self->dbreg->load('cennelops');
 
-    my $operation_unit_id = $job_row->get('operation_unit_id');
+    my $operation_unit_id = $job_values->{operation_unit_id};
     $self->{operation_unit_id} = $operation_unit_id;
-    my $unit_row = $ops_db->select('operation_unit', {operation_unit_id => $operation_unit_id});
-    my $op_row = $ops_db->select('operation', {operation_id => $unit_row->get('operation_id')});
+    my $unit_row = $ops_db->select('operation_unit', {operation_unit_id => $operation_unit_id})->first_as_row;
+    my $op_row = $ops_db->select('operation', {operation_id => $unit_row->get('operation_id')})->first_as_row;
     my $host_id = $unit_row->get('host_id');
-    my $host_row = $host_id ? $defs_db->select('host', {host_id => $host_id}) : undef;
-    my $role_row = $defs_db->select('role', {role_id => $op_row->get('role_id')});
-    my $repo_row = $defs_db->select('repository', {repository_id => $op_row->get('repository_id')});
+    my $host_row = $host_id ? $defs_db->select('host', {host_id => $host_id})->first_as_row : undef;
+    my $role_row = $defs_db->select('role', {role_id => $op_row->get('role_id')})->first_as_row;
+    my $repo_row = $defs_db->select('repository', {repository_id => $op_row->get('repository_id')})->first_as_row;
     
     $ops_db->execute(
         'UPDATE `operation_unit` SET status = ? AND data = CONCAT(data, :data)',
