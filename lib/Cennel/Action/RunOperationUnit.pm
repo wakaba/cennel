@@ -49,6 +49,13 @@ sub task_name {
     return $_[0]->operation->task_name;
 }
 
+sub onmessage {
+    if (@_ > 1) {
+        $_[0]->{onmessage} = $_[1];
+    }
+    return $_[0]->{onmessage} || sub { };
+}
+
 sub run_as_cv {
     my $self = shift;
     my $cv = AE::cv;
@@ -155,8 +162,10 @@ sub run_action_as_cv {
         $self->operation,
         $self->cached_repo_set_d,
     );
+    my $onmessage = $self->onmessage;
     $repo->onmessage(sub {
         push @{$self->{log}}, $_[0];
+        $onmessage->($_[0]);
     });
     my $cv = AE::cv;
     my $task_name = $self->task_name;

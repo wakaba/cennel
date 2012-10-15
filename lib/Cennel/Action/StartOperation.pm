@@ -30,6 +30,13 @@ sub task_name {
     return $_[0]->{task_name};
 }
 
+sub onmessage {
+    if (@_ > 1) {
+        $_[0]->{onmessage} = $_[1];
+    }
+    return $_[0]->{onmessage} || sub { };
+}
+
 sub run_as_cv {
     my $self = shift;
     my $cv = AE::cv;
@@ -111,8 +118,10 @@ sub get_target_host_list_as_cv {
     my $self = shift;
     my $repo = Cennel::Git::Repository->new_from_operation_and_cached_repo_set_d($self->operation, $self->cached_repo_set_d);
     my $log = [];
+    my $onmessage = $self->onmessage;
     $repo->onmessage(sub {
         push @$log, $_[0];
+        $onmessage->($_[0]);
     });
     my $cv = AE::cv;
     $repo->run_repo_command_as_cv('get-hosts', $self->role_name, '', $self->task_name)->cb(sub {

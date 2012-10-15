@@ -89,6 +89,7 @@ sub process_next_as_cv {
         $self->cached_repo_set_d,
         $job,
     );
+    $action->onmessage(sub { $self->log($_[0]) });
     my $cv = AE::cv;
     $action->run_as_cv->cb(sub {
         my $result = $_[0]->recv;
@@ -213,6 +214,7 @@ sub process_http {
         my $action = Cennel::Action::StartOperation->new_from_dbreg_and_cached_repo_set_d(
             $self->dbreg, $self->cached_repo_set_d,
         );
+        $action->onmessage(sub { $self->log($_[0]) });
         $action->run_as_cv(
             reository_name => $json->{hook_args}->{repository_name} || $url,
             repository_url => $url,
