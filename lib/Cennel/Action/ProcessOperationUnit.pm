@@ -63,4 +63,13 @@ sub complete_job {
     );
 }
 
+sub no_more_job_for {
+    my ($self, $op_id) = @_;
+    return not $self->db->select(
+        'operation_unit_job',
+        {operation_id => $op_id},
+        fields => 'operation_id',
+    )->first;
+}
+
 1;

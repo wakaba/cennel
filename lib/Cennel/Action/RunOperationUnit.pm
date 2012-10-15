@@ -2,6 +2,7 @@ package Cennel::Action::RunOperationUnit;
 use strict;
 use warnings;
 use AnyEvent;
+use Dongry::Type;
 use Cennel::Defs::Statuses;
 use Cennel::Git::Repository;
 use Cennel::Object::Operation;
@@ -105,11 +106,15 @@ sub open_record_as_cv {
     my $repo_row = $defs_db->select('repository', {repository_id => $op_row->get('repository_id')})->first_as_row;
     
     $ops_db->execute(
-        'UPDATE `operation_unit` SET status = ? AND data = CONCAT(data, :data)
+        'UPDATE `operation_unit`
+             SET status = ?,
+                 data = CONCAT(data, :data), 
+                 start_timestamp = ?
              WHERE operation_unit_id = ?',
         {
             status => OPERATION_UNIT_STATUS_STARTED,
-            data => (sprintf "[%s] operation unit started\n", scalar gmtime),
+            data => Dongry::Type->serialize('text', sprintf "[%s] operation unit started\n", scalar gmtime),
+            start_timestamp => time,
             operation_unit_id => $operation_unit_id,
         },
     );
@@ -149,7 +154,8 @@ sub check_preconditions_as_cv {
             field => 'operation_unit_id',
             limit => 1,
         )->first) {
-            return {failed => 1, retry => 1, phase => 'check_preconditions'}
+            $cv->send({failed => 1, retry => 1, phase => 'check_preconditions'});
+            return $cv;
         }
     }
 
@@ -178,7 +184,7 @@ sub run_action_as_cv {
         });
     } else {
         $repo->run_repo_command_as_cv($task_name, $self->role->role_name, $self->host ? $self->host->host_name : '', $self->task_name)->cb(sub {
-            if ($_[0]->recv) {
+            if ($_[0]->recv->[0]) {
                 $cv->send({failed => 1, retry => 0, phase => 'run_action'});
             } else {
                 $cv->send({});
@@ -198,11 +204,15 @@ sub close_record_as_cv {
 
     my $ops_db = $self->dbreg->load('cennelops');
     $ops_db->execute(
-        'UPDATE `operation_unit` SET status = ? AND data = CONCAT(data, :data)
+        'UPDATE `operation_unit`
+             SET status = ?,
+                 data = CONCAT(data, :data),
+                 end_timestamp = ?
              WHERE operation_unit_id = ?',
         {
             status => $status,
-            data => (join '', @{$self->{log}}, (sprintf "[%s] operation unit finished\n", scalar gmtime)),
+            data => Dongry::Type->serialize('text', join '', @{$self->{log}}, (sprintf "[%s] operation unit finished\n", scalar gmtime)),
+            end_timestamp => time,
             operation_unit_id => $self->operation_unit_id,
         },
     );

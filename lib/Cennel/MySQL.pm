@@ -11,8 +11,12 @@ sub define_schema {
         host => {},
     };
     $dbreg->{Registry}->{cennelops}->{schema} = {
-        operation => {},
-        operation_unit => {},
+        operation => {
+            primary_keys => ['operation_id'],
+        },
+        operation_unit => {
+            primary_keys => ['operation_unit_id'],
+        },
         operation_unit_job => {},
     };
 }

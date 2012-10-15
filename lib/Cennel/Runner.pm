@@ -93,12 +93,22 @@ sub process_next_as_cv {
     my $cv = AE::cv;
     $action->run_as_cv->cb(sub {
         my $result = $_[0]->recv;
+        my $job_action = $self->job_action;
         if ($result->{retry}) {
-            $self->job_action->retry_job($job);
+            $job_action->retry_job($job);
         } else {
-            $self->job_action->complete_job($job);
+            $job_action->complete_job($job);
         }
-        $cv->send;
+        if ($job_action->no_more_job_for($job->{operation_id})) {
+            require Cennel::Action::EndOperation;
+            my $end_action = Cennel::Action::EndOperation->new_from_dbreg_and_operation($self->dbreg, $action->operation);
+            undef $action;
+            $end_action->run_as_cv->cb(sub {
+                $cv->send;
+            });
+        } else {
+            $cv->send;
+        }
     });
     return $cv;
 }
@@ -208,9 +218,6 @@ sub process_http {
         my $task = $json->{hook_args}->{task}
             or $app->throw_error(400, reason_phrase => 'bad task');
 
-        $app->http->set_response_header('Content-Type' => 'text/plain; charset=utf-8');
-        $app->http->send_response_body_as_text("Inserting a job... ");
-
         my $action = Cennel::Action::StartOperation->new_from_dbreg_and_cached_repo_set_d(
             $self->dbreg, $self->cached_repo_set_d,
         );
@@ -223,10 +230,26 @@ sub process_http {
             role_name => $role,
             task_name => $task,
         );
-        $self->log("A job inserted");
-        $app->http->send_response_body_as_text("done");
-        $app->http->close_response_body;
+        $app->send_json({operation_id => $action->operation->operation_id});
         return $app->throw;
+
+    } elsif ($path->[0] eq 'operation' and
+             defined $path->[1] and $path->[1] =~ /.\.json\z/) {
+        # /operation/{operation_id}.json
+        $app->requires_basic_auth({api_key => $self->web_api_key});
+        my $op_id = $path->[1];
+        $op_id =~ s/\.json$//;
+        require Cennel::Loader::Operation;
+        my $op_loader = Cennel::Loader::Operation->new_from_dbreg_and_operation_id($self->dbreg, $op_id);
+        $op_loader->load_operation;
+        $op_loader->load_repository;
+        $op_loader->load_role;
+        my $op = $op_loader->operation;
+        require Cennel::Loader::OperationStatus;
+        my $loader = Cennel::Loader::OperationStatus->new_from_dbreg_and_operation($self->dbreg, $op);
+        $app->send_json($loader->as_jsonable);
+        return $app->throw;
+
     }
     
     return $app->throw_error(404);

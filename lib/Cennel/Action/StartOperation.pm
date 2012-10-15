@@ -2,6 +2,7 @@ package Cennel::Action::StartOperation;
 use strict;
 use warnings;
 use AnyEvent;
+use Dongry::Type;
 use Cennel::Defs::Statuses;
 use Cennel::Object::Operation;
 use Cennel::Git::Repository;
@@ -131,7 +132,10 @@ sub get_target_host_list_as_cv {
             $ops_db->execute(
                 'UPDATE `operation` SET data = CONCAT(data, :data)
                      WHERE operation_id = ?',
-                {data => (join '', @$log), operation_id => $op_id},
+                {
+                    data => Dongry::Type->serialize('text', join '', @$log),
+                    operation_id => $op_id,
+                },
             );
         }
         my ($status, $data) = @{$_[0]->recv};
@@ -176,9 +180,10 @@ sub get_target_host_ids_as_cv {
 sub insert_unit_jobs_as_cv {
     my ($self, $host_ids) = @_;
 
+    my $ops_db = $self->dbreg->load('cennelops');
+    my $op_id = $self->operation->operation_id;
+
     if (@$host_ids) {
-        my $ops_db = $self->dbreg->load('cennelops');
-        my $op_id = $self->operation->operation_id;
         $ops_db->insert(
             'operation_unit',
             [map {
@@ -203,6 +208,7 @@ sub insert_unit_jobs_as_cv {
                 [map {
                     +{
                         operation_unit_id => $_,
+                        operation_id => $op_id,
                         scheduled_timestamp => time,
                     };
                 } @$unit_ids],
