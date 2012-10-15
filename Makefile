@@ -7,7 +7,7 @@ all:
 
 ## ------ Setup ------
 
-deps: git-submodules pmbp-install
+deps: git-submodules pmbp-install cinnamon
 
 git-submodules:
 	$(GIT) submodule update --init
@@ -26,6 +26,15 @@ pmbp-install: pmbp-upgrade
 	perl local/bin/pmbp.pl --install \
 	    --create-perl-command-shortcut perl \
 	    --create-perl-command-shortcut prove
+
+CINNAMON_GIT_REPOSITORY = git://github.com/wakaba/cinnamon.git
+
+cinnamon:
+	mkdir -p local
+	cd local && (($(GIT) clone $(CINNAMON_GIT_REPOSITORY)) || (cd cinnamon && $(GIT) pull)) && cd cinnamon && $(MAKE) deps
+	echo "#!/bin/sh" > ./cin
+	echo "$(abspath local/cinnamon/perl) $(abspath local/cinnamon/bin/cinnamon) \"\$$@\"" >> ./cin
+	chmod ugo+x ./cin
 
 ## ------ Tests ------
 
