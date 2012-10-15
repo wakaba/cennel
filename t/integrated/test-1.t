@@ -1,13 +1,8 @@
 use strict;
 use warnings;
 use Path::Class;
-use lib glob file(__FILE__)->dir->parent->parent->subdir('t_deps', 'modules', '*', 'lib')->stringify;
 use lib glob file(__FILE__)->dir->parent->parent->subdir('t_deps', 'lib')->stringify;
-use Test::X1;
-use Test::More;
-use JSON::Functions::XS qw(perl2json_bytes);
-use Web::UserAgent::Functions qw(http_post_data);
-use Test::Cennel::Server;
+use Test::Cennel;
 
 test {
     my $c = shift;
