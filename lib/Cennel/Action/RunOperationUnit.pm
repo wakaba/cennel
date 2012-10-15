@@ -140,24 +140,7 @@ sub check_preconditions_as_cv {
     my $self = shift;
     my $cv = AE::cv;
 
-    my $task_name = $self->task_name;
-    if ($task_name eq 'end-operation') {
-        if ($self->dbreg->load('cennelops')->select(
-            'operation_unit',
-            {
-                operation_id => $self->operation->operation_id,
-                status => {-not_in => [
-                    OPERATION_UNIT_STATUS_FAILED,
-                    OPERATION_UNIT_STATUS_SUCCEEDED,
-                ]},
-            },
-            field => 'operation_unit_id',
-            limit => 1,
-        )->first) {
-            $cv->send({failed => 1, retry => 1, phase => 'check_preconditions'});
-            return $cv;
-        }
-    }
+    # XXX $cv->send({failed => 1, retry => 1, phase => 'check_preconditions'});
 
     $cv->send({});
     return $cv;
@@ -176,21 +159,13 @@ sub run_action_as_cv {
     });
     my $cv = AE::cv;
     my $task_name = $self->task_name;
-    if ($task_name eq 'end-operation') {
-        require Cennel::Action::EndOperation;
-        my $action = Cennel::Action::EndOperation->new_from_dbreg_and_operation($self->dbreg, $self->operation);
-        $action->run_as_cv(sub {
+    $repo->run_repo_command_as_cv($task_name, $self->role->role_name, $self->host ? $self->host->host_name : '', $self->task_name)->cb(sub {
+        if ($_[0]->recv->[0]) {
+            $cv->send({failed => 1, retry => 0, phase => 'run_action'});
+        } else {
             $cv->send({});
-        });
-    } else {
-        $repo->run_repo_command_as_cv($task_name, $self->role->role_name, $self->host ? $self->host->host_name : '', $self->task_name)->cb(sub {
-            if ($_[0]->recv->[0]) {
-                $cv->send({failed => 1, retry => 0, phase => 'run_action'});
-            } else {
-                $cv->send({});
-            }
-        });
-    }
+        }
+    });
     return $cv;
 }
 

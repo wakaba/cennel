@@ -1,6 +1,7 @@
 package Cennel::Action::ProcessOperationUnit;
 use strict;
 use warnings;
+use Cennel::Defs::Statuses;
 
 sub new_from_dbreg {
     return bless {dbreg => $_[1]}, $_[0];
@@ -70,6 +71,39 @@ sub no_more_job_for {
         {operation_id => $op_id},
         fields => 'operation_id',
     )->first;
+}
+
+sub skip_remaining_jobs {
+    my ($self, $op_id) = @_;
+    my $pid = $self->db->execute(
+        'select uuid_short() as uuid', {},
+        source_name => 'master',
+    )->first->{uuid};
+    $self->db->update(
+        'operation_unit_job',
+        {process_started => time, process_id => $pid},
+        where => {
+            operation_id => $op_id,
+            process_started => {'<=', time - $self->timeout},
+        },
+    );
+    my $unit_ids = $self->db->select(
+        'operation_unit_job',
+        {process_id => $pid},
+        fields => 'operation_unit_id',
+        source_name => 'master',
+    )->all->map(sub { $_->{operation_unit_id} });
+    $self->db->update(
+        'operation_unit',
+        {status => OPERATION_UNIT_STATUS_SKIPPED},
+        where => {
+            operation_unit_id => {-in => $unit_ids},
+        },
+    ) if @$unit_ids;
+    $self->db->delete(
+        'operation_unit_job',
+        {operation_unit_id => {-in => $unit_ids}},
+    ) if @$unit_ids;
 }
 
 1;

@@ -99,6 +99,9 @@ sub process_next_as_cv {
         } else {
             $job_action->complete_job($job);
         }
+        if ($result->{failed}) {
+            $job_action->skip_remaining_jobs($job->{operation_id});
+        }
         if ($job_action->no_more_job_for($job->{operation_id})) {
             require Cennel::Action::EndOperation;
             my $end_action = Cennel::Action::EndOperation->new_from_dbreg_and_operation($self->dbreg, $action->operation);
