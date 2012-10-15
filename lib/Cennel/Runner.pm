@@ -144,7 +144,7 @@ sub process_as_cv {
 
     $schedule_test = sub {
         $sleeping = 0;
-        $self->log("Finding a test job...");
+        $self->log("Finding a job...");
         $self->process_next_as_cv->cb($schedule_sleep);
     };
     $schedule_sleep = sub {
