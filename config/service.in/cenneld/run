@@ -1,0 +1,2 @@
+#!/bin/sh
+exec @@LOCAL@@/bin/@@INSTANCENAME@@-cenneld.sh
