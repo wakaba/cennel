@@ -140,6 +140,8 @@ sub _run_next_action {
             $self,
             action => $action,
             message => '$ ' . (
+                join ' ', map { $_ . '=' . $action->{envs}->{$_} } keys %{$action->{envs} or {}}
+            ) . (
                 ref $action->{command} eq 'ARRAY'
                     ? (join ' ', map { quotemeta } @{$action->{command}})
                     : 'sh -c ' . quotemeta $action->{command}
