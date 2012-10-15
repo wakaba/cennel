@@ -51,7 +51,7 @@ sub run_repo_command_as_cv {
                     $task_name,
                     $json_f,
                 ],
-                '<' => '/dev/null',
+                '<' => sub { undef },
                 '>' => sub { $self->print_message($_[0]) if defined $_[0] },
                 '2>' => sub { $self->print_message($_[0]) if defined $_[0] },
             )->cb(sub {
