@@ -5,6 +5,7 @@ use Path::Class;
 use Dongry::Database;
 use AnyEvent;
 use AnyEvent::HTTPD;
+use Cennel::MySQL;
 use Cennel::Git::Repository;
 use Cennel::Action::StartOperation;
 use Cennel::Action::ProcessOperationUnit;
@@ -38,26 +39,23 @@ sub dbreg {
     return $_[0]->{dbreg} if $_[0]->{dbreg};
 
     my $dbreg = Dongry::Database->create_registry;
-    $dbreg->{Registry}->{cennel} = {
-        sources => {
-            master => {
-                dsn => $_[0]->dsns->{cennel},
-                writable => 1,
-            },
-            default => {
-                dsn => $_[0]->dsns->{cennel},
-            },
+    Cennel::MySQL->define_schema($dbreg);
+    $dbreg->{Registry}->{cennel}->{sources} = {
+        master => {
+            dsn => $_[0]->dsns->{cennel},
+            writable => 1,
+        },
+        default => {
+            dsn => $_[0]->dsns->{cennel},
         },
     };
-    $dbreg->{Registry}->{cennelops} = {
-        sources => {
-            master => {
-                dsn => $_[0]->dsns->{cennelops},
-                writable => 1,
-            },
-            default => {
-                dsn => $_[0]->dsns->{cennelops},
-            },
+    $dbreg->{Registry}->{cennelops}->{sources} = {
+        master => {
+            dsn => $_[0]->dsns->{cennelops},
+            writable => 1,
+        },
+        default => {
+            dsn => $_[0]->dsns->{cennelops},
         },
     };
 
