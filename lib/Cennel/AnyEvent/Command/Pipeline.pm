@@ -126,6 +126,17 @@ sub push_cennel_need_password {
     });
 }
 
+sub push_cennel_set_password {
+    weaken(my $self = shift);
+    my ($user, $password) = @_;
+    $self->push_cb(sub {
+        my $cv = AE::cv;
+        $self->{password}->{defined $user ? $user : ''} = $password;
+        $cv->send;
+        return $cv;
+    });
+}
+
 sub cennel_cv {
     return $_[0]->{cennel_cv};
 }
