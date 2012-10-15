@@ -129,9 +129,9 @@ sub get_target_host_list_as_cv {
             my $ops_db = $self->dbreg->load('cennelops');
             my $op_id = $self->operation->operation_id;
             $ops_db->execute(
-                'UPDATE `operation` SET data = CONCAT(data, :data)',
-                {data => join '', @$log},
-                where => {operation_id => $op_id},
+                'UPDATE `operation` SET data = CONCAT(data, :data)
+                     WHERE operation_id = ?',
+                {data => (join '', @$log), operation_id => $op_id},
             );
         }
         my ($status, $data) = @{$_[0]->recv};

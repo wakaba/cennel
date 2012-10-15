@@ -30,7 +30,7 @@ sub operation_unit_job_values {
 }
 
 sub operation_unit_id {
-    return $_[0]->{operaton_unit_id};
+    return $_[0]->{operation_unit_id};
 }
 
 sub operation {
@@ -105,12 +105,13 @@ sub open_record_as_cv {
     my $repo_row = $defs_db->select('repository', {repository_id => $op_row->get('repository_id')})->first_as_row;
     
     $ops_db->execute(
-        'UPDATE `operation_unit` SET status = ? AND data = CONCAT(data, :data)',
+        'UPDATE `operation_unit` SET status = ? AND data = CONCAT(data, :data)
+             WHERE operation_unit_id = ?',
         {
             status => OPERATION_UNIT_STATUS_STARTED,
             data => (sprintf "[%s] operation unit started\n", scalar gmtime),
+            operation_unit_id => $operation_unit_id,
         },
-        where => {operation_unit_id => $operation_unit_id},
     );
 
     unless ($unit_row and $op_row and (not $host_id or $host_row) and $role_row and $repo_row) {
@@ -201,7 +202,7 @@ sub close_record_as_cv {
              WHERE operation_unit_id = ?',
         {
             status => $status,
-            data => join '', @{$self->{log}}, (sprintf "[%s] operation unit finished\n", scalar gmtime),
+            data => (join '', @{$self->{log}}, (sprintf "[%s] operation unit finished\n", scalar gmtime)),
             operation_unit_id => $self->operation_unit_id,
         },
     );
