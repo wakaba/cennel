@@ -218,6 +218,7 @@ sub process_http {
             or $app->throw_error(400, reason_phrase => 'bad after');
         my $role = ref $json->{hook_args} eq 'HASH' && $json->{hook_args}->{role}
             or $app->throw_error(400, reason_phrase => 'bad role');
+        $role =~ s/^\@//;
         my $task = $json->{hook_args}->{task}
             or $app->throw_error(400, reason_phrase => 'bad task');
 
