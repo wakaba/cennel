@@ -150,6 +150,7 @@ sub push_cinnamon {
             $self->cinnamon_command,
             $self->cinnamon_role,
             $task,
+            @{$args{args} or []},
             ($hosts ? '--hosts=' . join ',', @$hosts : ()),
             '--key-chain-fds=3,4',
         ],
