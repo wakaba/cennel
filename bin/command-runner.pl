@@ -11,10 +11,26 @@ chdir $repo_dir_name;
 
 my $package = do $script_file_name or die $@;
 
-$package->run(
+my %args = (
     role_name => $role_name,
     host_name => length $host_name ? $host_name : undef,
     task_name => $task_name,
     json_file_name => $json_file_name,
     cinnamon => $cinnamon,
 );
+
+if (eval { $package->run(%args) }) {
+    #
+} else {
+    warn "Command failed: $@\n";
+    if ($package->can('revert')) {
+        if (eval {$package->revert(%args) }) {
+            warn "Reverted\n";
+        } else {
+            warn "Revert failed\n";
+        }
+    } else {
+        warn "Can't revert changes\n";
+    }
+    exit 1;
+}
