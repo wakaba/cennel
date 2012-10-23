@@ -75,7 +75,8 @@ sub add_commit_status_as_cv {
     my $log_url = $self->log_viewer_url;
     my $op = $self->operation;
     my $state = $args{failed} ? 'failure' : 'success';
-    my $title = $args{failed} ? 'Cennel result - failed' : 'Cennel result - success';
+    my $title = sprintf 'Cennel result - @%s %s - %s',
+        $op->role_name, $op->task_name, $args{failed} ? 'failed' : 'succeeded';
     $url =~ s/%s/$op->repository_sha/e;
     $log_url =~ s/%s/$op->operation_id/e;
     http_post

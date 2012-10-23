@@ -124,7 +124,7 @@ test {
                         is_deeply $json, [{
                             sha => $rev,
                             target_url => q<http://GW/cennel/logs/> . $op_id,
-                            description => "Cennel result - failed",
+                            description => 'Cennel result - @devel1 restart - failed',
                             state => 'failure',
                         }];
                         done $c;

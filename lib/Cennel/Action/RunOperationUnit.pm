@@ -128,6 +128,7 @@ sub open_record_as_cv {
     $self->{operation} = Cennel::Object::Operation->new_from_rows(
         operation_row => $op_row,
         repository_row => $repo_row,
+        role_row => $role_row,
     );
     $self->{role} = Cennel::Object::Role->new_from_row($role_row);
     $self->{host} = Cennel::Object::Host->new_from_row($host_row) if $host_row;
