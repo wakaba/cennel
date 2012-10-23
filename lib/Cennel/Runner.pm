@@ -239,6 +239,17 @@ sub process_http {
         return $app->throw;
 
     } elsif ($path->[0] eq 'operation' and
+             defined $path->[1] and $path->[1] eq 'list.json' and
+             not defined $path->[2]) {
+        # /operation/list.json
+        $app->requires_basic_auth({api_key => $self->web_api_key});
+        require Cennel::Loader::OperationList;
+        my $loader = Cennel::Loader::OperationList->new_from_dbreg($self->dbreg);
+        $loader->load_recent_operations;
+        $app->send_json($loader->as_jsonable);
+        return $app->throw;
+
+    } elsif ($path->[0] eq 'operation' and
              defined $path->[1] and $path->[1] =~ /.\.json\z/) {
         # /operation/{operation_id}.json
         $app->requires_basic_auth({api_key => $self->web_api_key});
