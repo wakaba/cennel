@@ -71,6 +71,7 @@ sub as_jsonable {
             map {
                 my $v = $self->{operation_unit}->{$_};
                 ($_ => +{
+                    id => $_,
                     host => {
                         host_id => $v->{host_id},
                         name => $self->{host}->{$v->{host_id}} ? $self->{host}->{$v->{host_id}}->get('name') : undef,
