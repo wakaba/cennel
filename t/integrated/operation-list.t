@@ -71,6 +71,8 @@ test {
                         delete $json->[0]->{repository}->{id};
                         ok $json->[0]->{role}->{id};
                         delete $json->[0]->{role}->{id};
+                        ok $json->[0]->{operation}->{start_timestamp};
+                        delete $json->[0]->{operation}->{start_timestamp};
                         is_deeply $json, [{
                             repository => {
                                 url => q<hoge:fuga>,
@@ -80,8 +82,8 @@ test {
                             role => {name => 'devel1'},
                             task => {name => 'restart'},
                             operation => {
+                                id => $op_id,
                                 status => 2,
-                                start_timestamp => time,
                                 end_timestamp => 0,
                                 #data => '',
                             },
@@ -93,6 +95,6 @@ test {
         } $c;
     });
 } wait => Test::Cennel::Server->create_as_cv,
-    name => 'has an operation', n => 6;
+    name => 'has an operation', n => 7;
 
 run_tests;

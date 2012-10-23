@@ -65,6 +65,7 @@ sub as_jsonable {
                     sha => $op->repository_sha,
                 },
                 operation => {
+                    id => $op->operation_id,
                     status => $op->status,
                     #data => $op->data,
                     start_timestamp => $op->start_timestamp,
