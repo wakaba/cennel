@@ -83,7 +83,7 @@ test {
                                 status => 2,
                                 start_timestamp => time,
                                 end_timestamp => 0,
-                                data => '',
+                                #data => '',
                             },
                         }];
                         done $c;

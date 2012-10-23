@@ -26,6 +26,10 @@ sub load_recent_operations {
         'SELECT * FROM `operation` ORDER BY `start_timestamp` ASC LIMIT :lim',
         {lim => $self->per_page},
         table_name => 'operation',
+        fields => [qw(
+            operation_id repository_id repository_branch repository_sha
+            role_id task_name status start_timestamp end_timestamp
+        )],
     )->all_as_rows;
     return unless @$op_rows;
 
@@ -62,7 +66,7 @@ sub as_jsonable {
                 },
                 operation => {
                     status => $op->status,
-                    data => $op->data,
+                    #data => $op->data,
                     start_timestamp => $op->start_timestamp,
                     end_timestamp => $op->end_timestamp,
                 },
