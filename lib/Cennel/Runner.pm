@@ -106,6 +106,7 @@ sub process_next_as_cv {
             require Cennel::Action::EndOperation;
             my $end_action = Cennel::Action::EndOperation->new_from_dbreg_and_operation($self->dbreg, $action->operation);
             undef $action;
+            $end_action->config($self->config);
             $end_action->run_as_cv->cb(sub {
                 $cv->send;
             });

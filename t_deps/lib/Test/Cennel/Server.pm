@@ -11,6 +11,7 @@ use Path::Class;
 my $root_d = file(__FILE__)->dir->parent->parent->parent->parent;
 my $runner_f = $root_d->file('bin', 'runner.pl');
 my $prep_f = $root_d->file('db', 'preparation.txt');
+our $GWServerHost = 'GW';
 
 sub create_as_cv {
     my $cv_return = AE::cv;
@@ -22,6 +23,10 @@ sub create_as_cv {
         'cennel.web.port' => $data->web_port,
         'cennel.web.api_key' => 'api_key.txt',
         'cennel.cached_repo_set_dir_name' => $temp_d->subdir('repos')->stringify,
+        "cennel.repos.commit_status_post_url" => "http://$GWServerHost/repos/statuses/%s.json",
+        "cennel.repos.commit_status_basic_auth.user" => "",
+        "cennel.repos.commit_status_basic_auth.password" => "",
+        "cennel.repos.cennel_log_viewer_url" => "http://GW/cennel/logs/%s",
     };
     $temp_d->subdir('keys')->mkpath;
     print { $temp_d->file('keys', 'api_key.txt')->openw } encode_base64 $data->web_api_key;
