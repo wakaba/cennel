@@ -31,11 +31,12 @@ sub new {
 }
 
 sub push_cennel_done {
-    my $self = shift;
+    weaken (my $self = shift);
     my $cv = $self->{cennel_cv};
     $self->push_cb(sub {
         print "Done!\n";
         $cv->send(1);
+        $self->push_done;
     });
 }
 
@@ -158,6 +159,8 @@ sub push_cinnamon {
         envs => {
             PATH => $ENV{PMBP_ORIG_PATH} || $ENV{PATH},
         },
+        background => $args{background},
+        name => $args{name},
     );
 }
 

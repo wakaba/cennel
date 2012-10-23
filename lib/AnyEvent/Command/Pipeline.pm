@@ -11,6 +11,11 @@ sub new {
         @_,
         actions => [],
         next_action_id => 1,
+        end_cv => do {
+            my $cv = AE::cv;
+            $cv->begin;
+            $cv;
+        },
     }, $class;
 }
 
@@ -95,9 +100,21 @@ sub push_command {
     $self->_schedule_next_action;
 }
 
+sub push_stop_command {
+    my ($self, $name) = @_;
+    push @{$self->{actions}}, {type => 'stop-command', name => $name};
+    $self->_schedule_next_action;
+}
+
 sub push_cb {
     my ($self, $code) = @_;
     push @{$self->{actions}}, {type => 'code', code => $code};
+    $self->_schedule_next_action;
+}
+
+sub push_sleep {
+    my ($self, $seconds) = @_;
+    push @{$self->{actions}}, {type => 'sleep', seconds => $seconds};
     $self->_schedule_next_action;
 }
 
@@ -127,14 +144,8 @@ sub _run_next_action {
 
     if ($action->{type} eq 'command') {
         $action->{action_id} = $self->{next_action_id}++;
-        my $on_done = sub {
-            my %args = @_;
-            ($action->{on_error} || $self->on_error)
-                ->($self, %args, message => "Exit with status $args{status}")
-                if $args{is_error};
-            #$args{action}->{on_done}->(%args)
-            #    if $args{action}->{on_done} and defined $args{status};
-        };
+        $self->{action_name_to_id}->{$action->{name}} = $action->{action_id}
+            if defined $action->{name};
         my $cv2 = $self->{current_cv} = AE::cv;
         $self->on_info->(
             $self,
@@ -168,6 +179,27 @@ sub _run_next_action {
             %{$action->{descriptors} or {}},
             '$$' => \($self->{child_pids}->{$action->{action_id}}),
         ;
+        my $on_done = sub {
+            my %args = @_;
+            ($action->{on_error} || $self->on_error)
+                ->($self, %args, message => "Exit with status $args{status}")
+                if $args{is_error};
+            #$args{action}->{on_done}->(%args)
+            #    if $args{action}->{on_done} and defined $args{status};
+        };
+        my $on_doned;
+        if ($action->{background}) {
+            $self->{end_cv}->begin;
+            my $timer; $timer = AE::timer 0, 0, sub {
+                undef $timer;
+                $cv2->send;
+            };
+            $on_doned = sub {
+                $self->{end_cv}->end;
+            };
+        } else {
+            $on_doned = sub { $cv2->send };
+        }
         $cv->cb(sub {
             my $result = $_[0]->recv;
             my $return = $result >> 8;
@@ -176,7 +208,8 @@ sub _run_next_action {
                 status => $return,
                 action => $action,
             );
-            $cv2->send;
+            delete $self->{child_pids}->{$action->{action_id}};
+            $on_doned->();
         });
     } elsif ($action->{type} eq 'code') {
         $self->{current_cv} = $action->{code}->() || do {
@@ -189,6 +222,21 @@ sub _run_next_action {
         };
         die "Callback did not return cv"
             unless UNIVERSAL::isa($self->{current_cv}, 'AnyEvent::CondVar');
+    } elsif ($action->{type} eq 'stop-command') {
+        my $id = $self->{action_name_to_id}->{$action->{name}};
+        my $pid = $self->{child_pids}->{$id} if $id;
+        kill 1, $pid if $pid;
+        my $cv = $self->{current_cv} = AE::cv;
+        my $timer; $timer = AE::timer 0, 0, sub {
+            undef $timer;
+            $cv->send;
+        };
+    } elsif ($action->{type} eq 'sleep') {
+        my $cv = $self->{current_cv} = AE::cv;
+        my $timer; $timer = AE::timer $action->{seconds}, 0, sub {
+            undef $timer;
+            $cv->send;
+        };
     } else {
         die "Action type |$action->{type}| is not supported";
     }
@@ -225,6 +273,11 @@ sub cancel_actions {
     my $self = shift;
     $self->{actions} = [];
     $self->on_empty->($self);
+}
+
+sub push_done {
+    my $self = shift;
+    $self->end_cv->end;
 }
 
 sub DESTROY {
