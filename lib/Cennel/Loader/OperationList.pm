@@ -23,7 +23,7 @@ sub load_recent_operations {
 
     my $ops_db = $self->dbreg->load('cennelops');
     my $op_rows = $ops_db->execute(
-        'SELECT * FROM `operation` ORDER BY `start_timestamp` ASC LIMIT :lim',
+        'SELECT * FROM `operation` ORDER BY `start_timestamp` DESC LIMIT :lim',
         {lim => $self->per_page},
         table_name => 'operation',
         fields => [qw(
