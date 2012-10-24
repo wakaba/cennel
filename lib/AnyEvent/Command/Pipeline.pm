@@ -277,7 +277,7 @@ sub cancel_actions {
 
 sub push_done {
     my $self = shift;
-    $self->end_cv->end;
+    $self->{end_cv}->end;
 }
 
 sub DESTROY {
