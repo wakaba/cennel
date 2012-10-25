@@ -234,8 +234,9 @@ sub process_http {
             repository_sha => $rev,
             role_name => $role,
             task_name => $task,
-        );
-        $app->send_json({operation_id => $action->operation->operation_id});
+        )->cb(sub {
+            $app->send_json({operation_id => $action->operation->operation_id});
+        });
         return $app->throw;
 
     } elsif ($path->[0] eq 'operation' and
