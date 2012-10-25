@@ -47,7 +47,7 @@ sub run_as_cv {
             if ($data) {
                 $self->get_target_host_ids_as_cv($data)->cb(sub {
                     $self->insert_unit_jobs_as_cv($_[0]->recv)->cb(sub {
-                        $cv->send;
+                        $cv->send($_[0]->recv);
                     });
                 });
             } else {
@@ -108,6 +108,7 @@ sub create_operation_record_as_cv {
     $self->{operation} = Cennel::Object::Operation->new_from_rows(
         operation_row => $op_row,
         repository_row => $repo_row,
+        role_row => $role_row,
     );
 
     my $cv = AE::cv;
@@ -183,6 +184,7 @@ sub insert_unit_jobs_as_cv {
     my $ops_db = $self->dbreg->load('cennelops');
     my $op_id = $self->operation->operation_id;
 
+    my $n = 0;
     if (@$host_ids) {
         $ops_db->insert(
             'operation_unit',
@@ -213,11 +215,12 @@ sub insert_unit_jobs_as_cv {
                     };
                 } @$unit_ids],
             );
+            $n += @$unit_ids;
         }
     }
 
     my $cv = AE::cv;
-    $cv->send;
+    $cv->send($n);
     return $cv;
 }
 

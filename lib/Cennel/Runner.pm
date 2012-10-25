@@ -235,7 +235,19 @@ sub process_http {
             role_name => $role,
             task_name => $task,
         )->cb(sub {
-            $app->send_json({operation_id => $action->operation->operation_id});
+            my $n = $_[0]->recv;
+            if ($n) {
+                $app->send_json({operation_id => $action->operation->operation_id});
+                undef $action;
+            } else {
+                require Cennel::Action::EndOperation;
+                my $end_action = Cennel::Action::EndOperation->new_from_dbreg_and_operation($self->dbreg, $action->operation);
+                $end_action->config($self->config);
+                $end_action->run_as_cv->cb(sub {
+                    $app->send_json({operation_id => $action->operation->operation_id});
+                    undef $action;
+                });
+            }
         });
         return $app->throw;
 

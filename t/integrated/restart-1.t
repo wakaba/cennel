@@ -233,6 +233,86 @@ test {
 } wait => Test::Cennel::Server->create_as_cv,
     name => 'restart two hosts', n => 10;
 
+test {
+    my $c = shift;
+    my $data = $c->received_data;
+    
+    my $repo_d = create_git_repository;
+    my $temp_f = $repo_d->parent->file(rand);
+    create_git_files $repo_d, 
+        +{
+            name => 'config/cennel/get-hosts.pl',
+            data => q{
+                package My::Package;
+                use Path::Class;
+                use JSON::Functions::XS qw(perl2json_bytes);
+                sub run {
+                    my ($class, %args) = @_;
+                    my $json_f = file($args{json_file_name});
+                    print { $json_f->openw } perl2json_bytes +{
+                        hosts => [],
+                    };
+                }
+                'My::Package';
+            },
+        };
+    git_commit $repo_d;
+    my $rev = get_git_revision $repo_d;
+
+    my $cv1 = AE::cv;
+    my $port = $data->web_port;
+    my $op_id;
+    http_post_data
+        url => qq<http://localhost:$port/jobs>,
+        basic_auth => [api_key => $data->web_api_key],
+        content => perl2json_bytes +{
+            repository => {url => $repo_d->stringify},
+            ref => 'refs/heads/master',
+            after => $rev,
+            hook_args => {
+                role => 'devel1',
+                task => 'restart',
+            },
+        },
+        anyevent => 1,
+        cb => sub {
+            my (undef, $res) = @_;
+            test {
+                is $res->code, 200;
+                my $json = json_bytes2perl $res->content;
+                ok $op_id = $json->{operation_id};
+                $cv1->send;
+            } $c;
+        };
+
+    $cv1->cb(sub {
+        my $timer; $timer = AE::timer 2, 0, sub {
+            test {
+                http_get
+                    url => qq<http://localhost:$port/operation/$op_id.json>,
+                    basic_auth => [api_key => $data->web_api_key],
+                    anyevent => 1,
+                    cb => sub {
+                        my (undef, $res) = @_;
+                        test {
+                            my $json = json_bytes2perl $res->content;
+                            is $json->{repository}->{url}, $repo_d->stringify;
+                            is scalar keys %{$json->{units}}, 0;
+                            is $json->{operation}->{status}, 4, 'global status';
+                            ok $json->{operation}->{data};
+                            ok $json->{operation}->{start_timestamp};
+                            ok $json->{operation}->{end_timestamp};
+                            done $c;
+                            undef $c;
+                        } $c;
+                    };
+            } $c;
+            undef $timer;
+        };
+    });
+} wait => Test::Cennel::Server->create_as_cv,
+    name => 'restart empty', n => 8;
+
 run_tests;
 
 Test::Cennel::GWServer->stop_server_as_cv->recv;
