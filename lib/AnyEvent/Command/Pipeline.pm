@@ -136,7 +136,7 @@ sub _schedule_next_action {
 }
 
 sub _run_next_action {
-    weaken(my $self = shift);
+    my $self = shift;
     my $action = shift @{$self->{actions}} or do {
         $self->on_empty->($self);
         return;
@@ -247,6 +247,7 @@ sub _run_next_action {
     });
 
     unless ($self->{signal}) {
+        weaken (my $self = $self);
         delete $self->{signal_received};
         for (qw(INT TERM QUIT)) { # and HUP...
             $self->{signal}->{$_} = AE::signal $_ => sub {
