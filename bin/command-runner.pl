@@ -22,11 +22,12 @@ my %args = (
 if (eval { $package->run(%args) }) {
     #
 } else {
-    warn "Command failed: $@\n";
+    warn "Command failed: $@\n" if $@;
     if ($package->can('revert')) {
         if (eval {$package->revert(%args) }) {
             warn "Reverted\n";
         } else {
+            warn "Command failed: $@\n" if $@;
             warn "Revert failed\n";
         }
     } else {
