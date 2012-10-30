@@ -20,9 +20,20 @@ my %args = (
 );
 
 if (eval { $package->run(%args) }) {
-    #
+    warn "Succeeded\n";
+    exit 0;
 } else {
     warn "Command failed: $@\n" if $@;
+    if ($package->can('retry')) {
+        warn "Retry...\n";
+        if (eval { $package->retry(%args) }) {
+            warn "Retry succeeded\n";
+            exit 0;
+        } else {
+            warn "Command failed: $@\n" if $@;
+            warn "Retry failed\n";
+        }
+    }
     if ($package->can('revert')) {
         if (eval {$package->revert(%args) }) {
             warn "Reverted\n";
