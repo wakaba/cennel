@@ -56,7 +56,7 @@ sub run_repo_command_as_cv {
                 '2>' => sub { $self->print_message($_[0]) if defined $_[0] },
             )->cb(sub {
                 my $return = $_[0]->recv;
-                $self->print_message("$script_f ends with status $return\n");
+                $self->print_message("$script_f ends with status $return (@{[$return >> 8]})\n");
                 my $json;
                 if (not $return and -f $json_f) {
                     $json = file2perl $json_f;

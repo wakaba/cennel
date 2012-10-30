@@ -161,8 +161,9 @@ sub run_action_as_cv {
     my $cv = AE::cv;
     my $task_name = $self->task_name;
     $repo->run_repo_command_as_cv($task_name, $self->role->role_name, $self->host ? $self->host->host_name : '', $self->task_name)->cb(sub {
-        if ($_[0]->recv->[0]) {
-            $cv->send({failed => 1, retry => 0, phase => 'run_action'});
+        if (my $return = $_[0]->recv->[0]) {
+            $cv->send({failed => 1, retry => 0, phase => 'run_action',
+                       return => $return});
         } else {
             $cv->send({});
         }
@@ -175,7 +176,9 @@ sub close_record_as_cv {
     my $status = $result->{failed}
         ? $result->{phase} eq 'check_preconditions'
             ? OPERATION_UNIT_STATUS_PRECONDITION_FAILED
-            : OPERATION_UNIT_STATUS_FAILED
+            : $result->{return} && ($result->{return} >> 8) == 2
+                ? OPERATION_UNIT_STATUS_REVERTED
+                : OPERATION_UNIT_STATUS_FAILED
         : OPERATION_UNIT_STATUS_SUCCEEDED;
 
     my $ops_db = $self->dbreg->load('cennelops');

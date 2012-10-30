@@ -101,7 +101,7 @@ test {
                             is_deeply [sort { $a cmp $b } map { $_->{host}->{name} } values %{$json->{units}}], [qw(host1.localdomain host2.localdomain)];
                             my $id1 = [grep { $json->{units}->{$_}->{host}->{name} eq 'host1.localdomain' } keys %{$json->{units}}]->[0];
                             my $id2 = [grep { $json->{units}->{$_}->{host}->{name} eq 'host2.localdomain' } keys %{$json->{units}}]->[0];
-                            is $json->{units}->{$id1}->{status}, 3;
+                            is $json->{units}->{$id1}->{status}, 7;
                             is $json->{units}->{$id2}->{status}, 6;
                             is $json->{operation}->{status}, 3, 'global status';
                             ok !-f $temp_d->file('host1.localdomain');
