@@ -3,6 +3,10 @@ use warnings;
 use Path::Class;
 use lib glob file(__FILE__)->dir->parent->parent->subdir('t_deps', 'lib')->stringify;
 use Test::Cennel;
+use Test::Cennel::GWServer;
+
+Test::Cennel::GWServer->start_server_as_cv->recv;
+$Test::Cennel::Server::GWServerHost = Test::Cennel::GWServer->server_host;
 
 test {
     my $c = shift;
@@ -78,6 +82,7 @@ test {
             } $c;
         };
 
+    my $cv2 = AE::cv;
     $cv1->cb(sub {
         my $timer; $timer = AE::timer 4, 0, sub {
             test {
@@ -99,16 +104,40 @@ test {
                             is $json->{operation}->{status}, 4, 'global status';
                             ok -f $temp_d->file('host1.localdomain');
                             ok -f $temp_d->file('host2.localdomain');
-                            done $c;
-                            undef $c;
+                            $cv2->send;
                         } $c;
                     };
             } $c;
             undef $timer;
         };
     });
+
+    $cv2->cb(sub {
+        test {
+            http_get
+                url => qq<http://$Test::Cennel::Server::GWServerHost/repos/statuses/> . $rev . q<.json>,
+                params => {
+                    repository_url => $repo_d,
+                },
+                anyevent => 1,
+                cb => sub {
+                    my (undef, $res) = @_;
+                    test {
+                        my $json = json_bytes2perl $res->content;
+                        is_deeply $json, [{
+                            sha => $rev,
+                            target_url => q<http://GW/cennel/logs/> . $op_id,
+                            description => 'Cennel result - @devel1 restart - succeeded',
+                            state => 'success',
+                        }];
+                        done $c;
+                        undef $c;
+                    } $c;
+                };
+        } $c;
+    });
 } wait => Test::Cennel::Server->create_as_cv,
-    name => 'restart two hosts, both failed, then retried', n => 10;
+    name => 'restart two hosts, both failed, then retried', n => 11;
 
 test {
     my $c = shift;
@@ -184,6 +213,7 @@ test {
             } $c;
         };
 
+    my $cv2 = AE::cv;
     $cv1->cb(sub {
         my $timer; $timer = AE::timer 4, 0, sub {
             test {
@@ -205,16 +235,41 @@ test {
                             is $json->{operation}->{status}, 3, 'global status';
                             ok -f $temp_d->file('host1.localdomain');
                             ok !-f $temp_d->file('host2.localdomain');
-                            done $c;
-                            undef $c;
+                            $cv2->send;
                         } $c;
                     };
             } $c;
             undef $timer;
         };
     });
+
+    $cv2->cb(sub {
+        test {
+            http_get
+                url => qq<http://$Test::Cennel::Server::GWServerHost/repos/statuses/> . $rev . q<.json>,
+                params => {
+                    repository_url => $repo_d,
+                },
+                anyevent => 1,
+                cb => sub {
+                    my (undef, $res) = @_;
+                    test {
+                        my $json = json_bytes2perl $res->content;
+                        is_deeply $json, [{
+                            sha => $rev,
+                            target_url => q<http://GW/cennel/logs/> . $op_id,
+                            description => 'Cennel result - @devel1 restart - failed [failed (1), skipped (1)]',
+                            state => 'failure',
+                        }];
+                        done $c;
+                        undef $c;
+                    } $c;
+                };
+        } $c;
+    });
 } wait => Test::Cennel::Server->create_as_cv,
     name => 'restart two hosts, failed and retried but failed',
-    n => 10;
+    n => 11;
 
 run_tests;
+Test::Cennel::GWServer->stop_server_as_cv->recv;

@@ -30,16 +30,23 @@ sub run_as_cv {
 
     my $ops_db = $self->dbreg->load('cennelops');
     my $status = OPERATION_UNIT_STATUS_SUCCEEDED;
-    if ($ops_db->select(
+    my $results = $ops_db->select(
         'operation_unit',
         {
             operation_id => $self->operation->operation_id,
             status => {-not => OPERATION_UNIT_STATUS_SUCCEEDED},
         },
-        field => 'operation_unit_id',
-        limit => 1,
-    )->first) {
+        field => 'status',
+    )->all;
+    my $fail_details;
+    if (@$results) {
         $status = OPERATION_UNIT_STATUS_FAILED;
+        my $fails = {};
+        $fails->{$_->{status}}++ for @$results;
+        $fail_details = join ', ', map {
+            ($Cennel::Defs::Statuses::StatusCodeToText->{$_} || $_) .
+            ' (' . $fails->{$_} . ')'
+        } sort { $a <=> $b } keys %$fails;
     }
 
     $self->operation->operation_row->update({
@@ -49,6 +56,7 @@ sub run_as_cv {
 
     return $self->add_commit_status_as_cv(
         failed => $status != OPERATION_UNIT_STATUS_SUCCEEDED,
+        fail_details => $fail_details,
     );
 }
 
@@ -77,6 +85,7 @@ sub add_commit_status_as_cv {
     my $state = $args{failed} ? 'failure' : 'success';
     my $title = sprintf 'Cennel result - @%s %s - %s',
         $op->role_name, $op->task_name, $args{failed} ? 'failed' : 'succeeded';
+    $title .= ' [' . $args{fail_details} . ']' if defined $args{fail_details};
     $url =~ s/%s/$op->repository_sha/e;
     $log_url =~ s/%s/$op->operation_id/e;
     http_post
