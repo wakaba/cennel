@@ -3,7 +3,6 @@ use strict;
 use warnings;
 use Cennel::AnyEvent::Command::Pipeline;
 use Path::Class;
-use MIME::Base64;
 use File::Temp;
 
 my $temp_dir = File::Temp->newdir('DEPLOY-XX'.'XX'.'XX', TMPDIR => 1);
