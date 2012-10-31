@@ -51,7 +51,7 @@ sub _run {
         cinnamon_role => $args{role_name},
         cinnamon_hosts => [$args{host_name}],
     );
-    $class->_run_with_pipe($pipe);
+    $class->_run_with_pipe($pipe, %args);
     $pipe->push_cennel_done;
 
     return unless $pipe->cennel_cv->recv;
