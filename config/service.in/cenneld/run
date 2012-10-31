@@ -1,2 +1,3 @@
 #!/bin/sh
+[ -e "@@SYSCONFIG@@" ] && source "@@SYSCONFIG@@"
 exec @@LOCAL@@/bin/@@INSTANCENAME@@-cenneld.sh
