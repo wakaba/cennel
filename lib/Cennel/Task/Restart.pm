@@ -8,6 +8,10 @@ use File::Temp;
 my $temp_dir = File::Temp->newdir('DEPLOY-XX'.'XX'.'XX', TMPDIR => 1);
 my $temp_d = dir($temp_dir);
 
+sub temp_d {
+    return $temp_d;
+}
+
 sub run {
     my ($class, %args) = @_;
 
@@ -25,7 +29,7 @@ sub retry {
 sub revert {
     my ($class, %args) = @_;
 
-    my $old_f = $temp_d->file('old-rev.txt');
+    my $old_f = $class->temp_d->file('old-rev.txt');
     my $old_rev = -f $old_f ? scalar $old_f->slurp : undef;
     unless ($old_rev) {
         warn "Can't revert - old revision is not known\n";
