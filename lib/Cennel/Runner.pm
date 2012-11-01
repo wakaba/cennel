@@ -13,6 +13,8 @@ use Cennel::Action::RunOperationUnit;
 use Wanage::HTTP;
 use Cennel::Warabe::App;
 
+our $DEBUG ||= $ENV{CENNEL_DEBUG};
+
 sub new_from_config_and_dsns {
     return bless {config => $_[1], dsns => $_[2]}, $_[0];
 }
@@ -159,12 +161,12 @@ sub process_as_cv {
 
     $schedule_test = sub {
         $sleeping = 0;
-        $self->log("Finding a job...");
+        $self->log("Finding a job...") if $DEBUG;
         $self->process_next_as_cv->cb($schedule_sleep);
     };
     $schedule_sleep = sub {
         $sleeping = 1;
-        $self->log("Sleep @{[$self->interval]}s");
+        $self->log("Sleep @{[$self->interval]}s") if $DEBUG;
         my $watcher; $watcher = AE::timer $self->interval, 0, sub {
             undef $watcher;
             $schedule_test->();
