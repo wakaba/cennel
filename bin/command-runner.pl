@@ -32,7 +32,6 @@ if (eval { $package->run(%args) }) {
         } else {
             warn "Command failed: $@\n" if $@;
             warn "Retry failed\n";
-            exit 1;
         }
     }
     if ($package->can('revert')) {
