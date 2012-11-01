@@ -22,8 +22,12 @@ sub run {
 }
 
 sub retry {
-    my $class = shift;
-    return $class->run(@_);
+    my ($class, %args) = @_;
+
+    my $rev = `git rev-parse HEAD`;
+    chomp $rev;
+
+    return $class->_run(%args, revision => $rev, save_old_revision => 0);
 }
 
 sub revert {
