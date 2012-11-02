@@ -47,7 +47,7 @@ sub revert {
         return 0;
     }
 
-    return $class->_run(%args, revision => $old_rev);
+    return $class->_run(%args, revision => $old_rev, is_revert => 1);
 }
 
 sub _run {
