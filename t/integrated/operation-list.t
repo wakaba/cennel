@@ -3,6 +3,10 @@ use warnings;
 use Path::Class;
 use lib glob file(__FILE__)->dir->parent->parent->subdir('t_deps', 'lib')->stringify;
 use Test::Cennel;
+use Test::Cennel::GWServer;
+
+Test::Cennel::GWServer->start_server_as_cv->recv;
+$Test::Cennel::Server::GWServerHost = Test::Cennel::GWServer->server_host;
 
 test {
     my $c = shift;
@@ -33,11 +37,12 @@ test {
     my $cv1 = AE::cv;
     my $port = $data->web_port;
     my $op_id;
+    my $repo_d = create_git_repository;
     http_post_data
         url => qq<http://localhost:$port/jobs>,
         basic_auth => [api_key => $data->web_api_key],
         content => perl2json_bytes +{
-            repository => {url => q<hoge:fuga>},
+            repository => {url => $repo_d->stringify},
             ref => 'refs/heads/master',
             after => q<aatewgfagageeet23t23ttqtr3q3t33333333aa3>,
             hook_args => {
@@ -77,7 +82,7 @@ test {
                         delete $json->[0]->{operation}->{end_timestamp};
                         is_deeply $json, [{
                             repository => {
-                                url => q<hoge:fuga>,
+                                url => $repo_d->stringify,
                                 sha => 'aatewgfagageeet23t23ttqtr3q3t33333333aa3',
                                 branch => 'master',
                             },
@@ -85,7 +90,7 @@ test {
                             task => {name => 'restart'},
                             operation => {
                                 id => $op_id,
-                                status => 4,
+                                status => 3,
                                 #data => '',
                             },
                         }];
@@ -99,3 +104,4 @@ test {
     name => 'has an operation', n => 8;
 
 run_tests;
+Test::Cennel::GWServer->stop_server_as_cv->recv;
