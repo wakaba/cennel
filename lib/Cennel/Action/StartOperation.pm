@@ -51,7 +51,7 @@ sub run_as_cv {
                     });
                 });
             } else {
-                $cv->send;
+                $cv->send(undef);
             }
         });
     });

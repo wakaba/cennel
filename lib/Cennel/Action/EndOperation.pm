@@ -25,11 +25,13 @@ sub config {
 }
 
 sub run_as_cv {
-    my $self = shift;
+    my ($self, %args) = @_;
     my $cv = AE::cv;
 
     my $ops_db = $self->dbreg->load('cennelops');
-    my $status = OPERATION_UNIT_STATUS_SUCCEEDED;
+    my $status = $args{failed}
+        ? OPERATION_UNIT_STATUS_FAILED
+        : OPERATION_UNIT_STATUS_SUCCEEDED;
     my $results = $ops_db->select(
         'operation_unit',
         {
