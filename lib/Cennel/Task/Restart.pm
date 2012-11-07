@@ -61,7 +61,7 @@ sub _run {
     $class->_run_with_pipe($pipe, %args);
     $pipe->push_cennel_done;
 
-    return unless $pipe->cennel_cv->recv;
+    return $pipe->cennel_cv->recv;
 }
 
 sub _run_with_pipe {
