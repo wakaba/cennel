@@ -43,3 +43,6 @@
 [submodule "t_deps/modules/test-anyevent-plackup"]
 	path = t_deps/modules/test-anyevent-plackup
 	url = git://github.com/wakaba/perl-test-anyevent-plackup
+[submodule "t_deps/modules/anyevent-timer-retry"]
+	path = t_deps/modules/anyevent-timer-retry
+	url = git://github.com/wakaba/perl-anyevent-timer-retry

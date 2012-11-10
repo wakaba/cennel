@@ -3,12 +3,16 @@ use strict;
 use warnings;
 use Cennel::Defs::Statuses;
 
-sub new_from_dbreg {
-    return bless {dbreg => $_[1]}, $_[0];
+sub new_from_dbreg_and_config {
+    return bless {dbreg => $_[1], config => $_[2]}, $_[0];
 }
 
 sub dbreg {
     return $_[0]->{dbreg};
+}
+
+sub config {
+    return $_[0]->{config};
 }
 
 sub timeout {
@@ -18,6 +22,48 @@ sub timeout {
 sub db {
     my $self = shift;
     return $self->{db} ||= $self->dbreg->load('cennelops');
+}
+
+sub filters_as_where {
+    my $self = shift;
+    return $self->{filters_as_where} ||= do {
+        my $config = $self->config;
+        my $where = {};
+        my $incomplete;
+        if ($config) {
+            my $defs_db = $self->dbreg->load('cennel');
+            
+            my $repos = $config->get_text('cennel.filter.repository_urls');
+            $repos = defined $repos ? [split /,/, $repos] : [];
+            if (@$repos) {
+                $where->{repository_id} = {-in => $defs_db->select('repository', {url => {-in => $repos}}, fields => 'repository_id')->all->map(sub { $_->{repository_id} })};
+                unless (@{$where->{repository_id}->{-in}}) {
+                    $where->{repository_id}->{-in} = [0];
+                    $incomplete = 1;
+                }
+                $incomplete = 1 if @$repos != @{$where->{repository_id}->{-in}};
+            }
+
+            my $branches = $config->get_text('cennel.filter.repository_branches');
+            $branches = defined $branches ? [split /,/, $branches] : [];
+            if (@$branches) {
+                $where->{repository_branch}->{-in} = $branches;
+            }
+
+            my $roles = $config->get_text('cennel.filter.role_names');
+            $roles = defined $roles ? [split /,/, $roles] : [];
+            if (@$roles) {
+                $where->{role_id} = {-in => $defs_db->select('role', {name => {-in => $roles}}, fields => 'role_id')->all->map(sub { $_->{role_id} })};
+                unless (@{$where->{role_id}->{-in}}) {
+                    $where->{role_id}->{-in} = [0];
+                    $incomplete = 1;
+                }
+                $incomplete = 1 if @$repos != @{$where->{role_id}->{-in}};
+            }
+        }
+        return $where if $incomplete;
+        $where;
+    };
 }
 
 sub get_job {
@@ -36,6 +82,7 @@ sub get_job {
         },
         where => {
             process_started => {'<=', time - $self->timeout},
+            %{$self->filters_as_where},
         },
         order => [process_started => 'ASC', scheduled_timestamp => 'ASC'],
         limit => 1,

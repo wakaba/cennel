@@ -14,6 +14,7 @@ my $prep_f = $root_d->file('db', 'preparation.txt');
 our $GWServerHost = 'GW';
 
 sub create_as_cv {
+    my ($class, %args) = @_;
     my $cv_return = AE::cv;
     my $data = bless {}, 'Test::Cennel::Server::Data';
 
@@ -27,6 +28,7 @@ sub create_as_cv {
         "cennel.repos.commit_status_basic_auth.user" => "",
         "cennel.repos.commit_status_basic_auth.password" => "",
         "cennel.repos.cennel_log_viewer_url" => "http://GW/cennel/logs/%s",
+        %{$args{config} or {}},
     };
     $temp_d->subdir('keys')->mkpath;
     print { $temp_d->file('keys', 'api_key.txt')->openw } encode_base64 $data->web_api_key;

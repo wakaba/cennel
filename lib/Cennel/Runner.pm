@@ -74,7 +74,9 @@ sub cached_repo_set_d {
 
 sub job_action {
     my $self = shift;
-    return $self->{job_action} ||= Cennel::Action::ProcessOperationUnit->new_from_dbreg($self->dbreg);
+    return $self->{job_action} ||= Cennel::Action::ProcessOperationUnit->new_from_dbreg_and_config(
+        $self->dbreg, $self->config,
+    );
 }
 
 sub process_next_as_cv {

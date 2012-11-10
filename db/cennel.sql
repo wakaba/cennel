@@ -16,6 +16,7 @@ CREATE TABLE `role` (
   created DOUBLE NOT NULL DEFAULT 0,
   PRIMARY KEY (role_id),
   UNIQUE KEY (repository_id, name),
+  KEY (name, created),
   KEY (repository_id, created),
   KEY (created)
 ) DEFAULT CHARSET=BINARY;
