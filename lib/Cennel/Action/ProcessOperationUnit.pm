@@ -37,7 +37,7 @@ sub get_job {
         where => {
             process_started => {'<=', time - $self->timeout},
         },
-        order => [process_started => 'ASC'],
+        order => [process_started => 'ASC', scheduled_timestamp => 'ASC'],
         limit => 1,
     );
     return $db->select(
