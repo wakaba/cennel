@@ -182,7 +182,8 @@ sub insert_unit_jobs_as_cv {
     my ($self, $host_ids) = @_;
 
     my $ops_db = $self->dbreg->load('cennelops');
-    my $op_id = $self->operation->operation_id;
+    my $op = $self->operation;
+    my $op_id = $op->operation_id;
 
     my $n = 0;
     if (@$host_ids) {
@@ -211,6 +212,10 @@ sub insert_unit_jobs_as_cv {
                     +{
                         operation_unit_id => $_,
                         operation_id => $op_id,
+                        repository_id => $op->repository_id,
+                        repository_branch => $op->repository_branch,
+                        role_id => $op->role_id,
+                        task_name => $op->task_name,
                         scheduled_timestamp => time,
                     };
                 } @$unit_ids],

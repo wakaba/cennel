@@ -38,6 +38,10 @@ CREATE TABLE `operation_unit` (
 CREATE TABLE `operation_unit_job` (
   operation_unit_id BIGINT UNSIGNED NOT NULL,
   operation_id BIGINT UNSIGNED NOT NULL,
+  repository_id BIGINT UNSIGNED NOT NULL,
+  repository_branch VARCHAR(511) NOT NULL,
+  role_id BIGINT UNSIGNED NOT NULL,
+  task_name VARCHAR(255) NOT NULL,
   scheduled_timestamp DOUBLE NOT NULL DEFAULT 0,
   process_id BIGINT UNSIGNED NOT NULL,
   process_started DOUBLE NOT NULL DEFAULT 0,
