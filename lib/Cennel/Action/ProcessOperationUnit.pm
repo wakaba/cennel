@@ -16,7 +16,7 @@ sub config {
 }
 
 sub timeout {
-    return 20*60;
+    return 10*60;
 }
 
 sub db {
