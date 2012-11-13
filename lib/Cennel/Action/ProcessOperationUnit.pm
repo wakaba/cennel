@@ -58,7 +58,18 @@ sub filters_as_where {
                     $where->{role_id}->{-in} = [0];
                     $incomplete = 1;
                 }
-                $incomplete = 1 if @$repos != @{$where->{role_id}->{-in}};
+                $incomplete = 1 if @$roles != @{$where->{role_id}->{-in}};
+            }
+
+            my $not_roles = $config->get_text('cennel.filter.not_role_names');
+            $not_roles = defined $not_roles ? [split /,/, $not_roles] : [];
+            if (@$not_roles) {
+                $where->{role_id}->{-not_in} = $defs_db->select('role', {name => {-in => $not_roles}}, fields => 'role_id')->all->map(sub { $_->{role_id} });
+                unless (@{$where->{role_id}->{-not_in}}) {
+                    $where->{role_id}->{-not_in} = [0];
+                    $incomplete = 1;
+                }
+                $incomplete = 1 if @$not_roles != @{$where->{role_id}->{-not_in}};
             }
         }
         return $where if $incomplete;
