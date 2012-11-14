@@ -147,7 +147,14 @@ sub process_as_cv {
     my $schedule_sleep;
     my $sleeping = 1;
 
-    $self->run_httpd;
+    $self->fork_httpd_process;
+
+    $cv->begin;
+    $self->wait_child_processes_as_cv->cb(sub {
+        $cv->end;
+    });
+    
+    $cv->begin;
 
     $schedule_test = sub {
         $sleeping = 0;
@@ -166,18 +173,19 @@ sub process_as_cv {
     my $schedule_end = sub {
         my $timer; $timer = AE::timer 0, 0, sub {
             #warn "end...\n";
-            $cv->send;
+            $cv->end;
             undef $timer;
         };
-        $schedule_test = $schedule_sleep = sub { };
+        $schedule_test = $schedule_sleep = sub { $cv->end };
     };
     for my $sig (qw(TERM INT)) {
         my $signal; $signal = AE::signal $sig => sub {
-            $self->log("Signal: SIG$sig");
+            $self->log("Signal SIG$sig received");
             if ($sleeping) {
                 $schedule_end->();
                 undef $signal;
                 $self->discard_httpd;
+                $self->send_signal_to_children($sig);
             } else {
                 $schedule_test = $schedule_sleep = $schedule_end;
                 $sleeping = 1; # for second kill
@@ -190,7 +198,43 @@ sub process_as_cv {
     return $cv;
 }
 
+sub wait_child_processes_as_cv {
+    my $self = shift;
+    my $cv = AE::cv;
+    for (keys %{$self->{httpd_pids} or {}}) {
+        $cv->begin;
+        my $w; $w = AE::child $_, sub {
+            my ($pid, $status) = @_;
+            delete $self->{httpd_pids}->{$pid};
+            $self->log("Child process $pid exited with status $status");
+            undef $w;
+            $cv->end;
+        };
+    }
+    return $cv;
+}
+
+sub send_signal_to_children {
+    my ($self, $sig) = @_;
+    for (keys %{$self->{httpd_pids} or {}}) {
+        kill $sig, $_;
+    }
+}
+
 # ------ HTTP server ------
+
+sub fork_httpd_process {
+    my $self = shift;
+    my $pid = fork;
+    if ($pid) { # parent
+        $self->{httpd_pids}->{$pid} = 1;
+        $self->log("HTTP server process forked ($pid)");
+    } elsif (defined $pid) { # child
+        $self->run_httpd;
+    } else {
+        die "Can't fork";
+    }
+}
 
 sub run_httpd {
     my $self = shift;
@@ -300,8 +344,10 @@ sub process_http {
 
 sub discard_httpd {
     my $self = shift;
-    $self->log("Stopping HTTP server...");
-    delete $self->{httpd};
+    if ($self->{httpd}) {
+        $self->log("Stopping HTTP server...");
+        delete $self->{httpd};
+    }
 }
 
 1;
