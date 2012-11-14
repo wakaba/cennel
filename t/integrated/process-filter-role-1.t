@@ -42,28 +42,39 @@ test {
     my $cv1 = AE::cv;
     my $port = $data->web_port;
     my $op_id;
-    http_post_data
-        url => qq<http://localhost:$port/jobs>,
-        basic_auth => [api_key => $data->web_api_key],
-        content => perl2json_bytes +{
-            repository => {url => $repo_d->stringify},
-            ref => 'refs/heads/master',
-            after => $rev,
-            hook_args => {
-                role => 'devel1',
-                task => 'restart',
-            },
+    my $timer; $timer = AnyEvent::Timer::Retry->new(
+        on_retry => sub {
+            my $done = shift;
+            http_post_data
+                url => qq<http://localhost:$port/jobs>,
+                basic_auth => [api_key => $data->web_api_key],
+                timeout => 10,
+                content => perl2json_bytes +{
+                    repository => {url => $repo_d->stringify},
+                    ref => 'refs/heads/master',
+                    after => $rev,
+                    hook_args => {
+                        role => 'devel1',
+                        task => 'restart',
+                    },
+                },
+                anyevent => 1,
+                cb => sub {
+                    my (undef, $res) = @_;
+                    $done->($res->code == 200, $res);
+                };
         },
-        anyevent => 1,
-        cb => sub {
-            my (undef, $res) = @_;
+        on_end => sub {
+            my ($result, $res) = @_;
             test {
                 is $res->code, 200;
                 my $json = json_bytes2perl $res->content;
                 ok $op_id = $json->{operation_id};
                 $cv1->send;
+                undef $timer;
             } $c;
-        };
+        },
+    );
 
     $cv1->cb(sub {
         my $timer; $timer = AE::timer 4, 0, sub {
@@ -84,9 +95,9 @@ test {
             undef $timer;
         };
     });
-} wait => Test::Cennel::Server->create_as_cv(config => {
+} wait => sub { Test::Cennel::Server->create_as_cv(config => {
     'cennel.filter.role_names' => 'hoge,fuga',
-}), name => 'role no match', n => 4;
+}) }, name => 'role no match', n => 4;
 
 test {
     my $c = shift;
@@ -124,6 +135,7 @@ test {
     http_post_data
         url => qq<http://localhost:$port/jobs>,
         basic_auth => [api_key => $data->web_api_key],
+        timeout => 10,
         content => perl2json_bytes +{
             repository => {url => $repo_d->stringify},
             ref => 'refs/heads/master',
@@ -170,9 +182,97 @@ test {
             },
         );
     });
-} wait => Test::Cennel::Server->create_as_cv(config => {
+} wait => sub { Test::Cennel::Server->create_as_cv(config => {
     'cennel.filter.role_names' => 'hoge,master,devel1',
-}), name => 'role match', n => 4;
+}) }, name => 'role match', n => 4;
+
+test {
+    my $c = shift;
+    my $data = $c->received_data;
+    
+    my $repo_d = create_git_repository;
+    my $temp_f = $repo_d->parent->file(rand);
+    create_git_files $repo_d, 
+        +{
+            name => 'config/cennel/get-hosts.pl',
+            data => q{
+                package My::Package;
+                use Path::Class;
+                use JSON::Functions::XS qw(perl2json_bytes);
+                sub run {
+                    my ($class, %args) = @_;
+                    my $json_f = file($args{json_file_name});
+                    print { $json_f->openw } perl2json_bytes +{
+                        hosts => ['host1.localdomain'],
+                    };
+                }
+                'My::Package';
+            },
+        },
+        +{
+            name => 'config/cennel/restart.pl',
+            data => q{ package My::Package; sub run { } 'My::Package' },
+        };
+    git_commit $repo_d;
+    my $rev = get_git_revision $repo_d;
+
+    my $cv1 = AE::cv;
+    my $port = $data->web_port;
+    my $op_id;
+    http_post_data
+        url => qq<http://localhost:$port/jobs>,
+        basic_auth => [api_key => $data->web_api_key],
+        timeout => 10,
+        content => perl2json_bytes +{
+            repository => {url => $repo_d->stringify},
+            ref => 'refs/heads/master',
+            after => $rev,
+            hook_args => {
+                role => 'devel1',
+                task => 'restart',
+            },
+        },
+        anyevent => 1,
+        cb => sub {
+            my (undef, $res) = @_;
+            test {
+                is $res->code, 200;
+                my $json = json_bytes2perl $res->content;
+                ok $op_id = $json->{operation_id};
+                $cv1->send;
+            } $c;
+        };
+
+    $cv1->cb(sub {
+        my $timer; $timer = AnyEvent::Timer::Retry->new(
+            on_retry => sub {
+                my $done = shift;
+                http_get
+                    url => qq<http://localhost:$port/operation/$op_id.json>,
+                    basic_auth => [api_key => $data->web_api_key],
+                    anyevent => 1,
+                    cb => sub {
+                        my (undef, $res) = @_;
+                        my $json = json_bytes2perl $res->content;
+                        $done->($timer->elapsed_time > 4, $json);
+                    };
+            },
+            on_end => sub {
+                my ($result, $json) = @_;
+                test {
+                    is $json->{repository}->{url}, $repo_d->stringify;
+                    is $json->{operation}->{status}, 2;
+                    done $c;
+                    undef $c;
+                    undef $timer;
+                } $c;
+            },
+        );
+    });
+} wait => sub { Test::Cennel::Server->create_as_cv(config => {
+    'cennel.filter.role_names' => 'hoge,master,devel1',
+    'cennel.filter.not_role_names' => 'devel1',
+}) }, name => 'role match not match', n => 4;
 
 test {
     my $c = shift;
@@ -220,6 +320,7 @@ test {
             },
         },
         anyevent => 1,
+        timeout => 10,
         cb => sub {
             my (undef, $res) = @_;
             test {
@@ -256,96 +357,9 @@ test {
             },
         );
     });
-} wait => Test::Cennel::Server->create_as_cv(config => {
-    'cennel.filter.role_names' => 'hoge,master,devel1',
+} wait => sub { Test::Cennel::Server->create_as_cv(config => {
     'cennel.filter.not_role_names' => 'devel1',
-}), name => 'role match not match', n => 4;
-
-test {
-    my $c = shift;
-    my $data = $c->received_data;
-    
-    my $repo_d = create_git_repository;
-    my $temp_f = $repo_d->parent->file(rand);
-    create_git_files $repo_d, 
-        +{
-            name => 'config/cennel/get-hosts.pl',
-            data => q{
-                package My::Package;
-                use Path::Class;
-                use JSON::Functions::XS qw(perl2json_bytes);
-                sub run {
-                    my ($class, %args) = @_;
-                    my $json_f = file($args{json_file_name});
-                    print { $json_f->openw } perl2json_bytes +{
-                        hosts => ['host1.localdomain'],
-                    };
-                }
-                'My::Package';
-            },
-        },
-        +{
-            name => 'config/cennel/restart.pl',
-            data => q{ package My::Package; sub run { } 'My::Package' },
-        };
-    git_commit $repo_d;
-    my $rev = get_git_revision $repo_d;
-
-    my $cv1 = AE::cv;
-    my $port = $data->web_port;
-    my $op_id;
-    http_post_data
-        url => qq<http://localhost:$port/jobs>,
-        basic_auth => [api_key => $data->web_api_key],
-        content => perl2json_bytes +{
-            repository => {url => $repo_d->stringify},
-            ref => 'refs/heads/master',
-            after => $rev,
-            hook_args => {
-                role => 'devel1',
-                task => 'restart',
-            },
-        },
-        anyevent => 1,
-        cb => sub {
-            my (undef, $res) = @_;
-            test {
-                is $res->code, 200;
-                my $json = json_bytes2perl $res->content;
-                ok $op_id = $json->{operation_id};
-                $cv1->send;
-            } $c;
-        };
-
-    $cv1->cb(sub {
-        my $timer; $timer = AnyEvent::Timer::Retry->new(
-            on_retry => sub {
-                my $done = shift;
-                http_get
-                    url => qq<http://localhost:$port/operation/$op_id.json>,
-                    basic_auth => [api_key => $data->web_api_key],
-                    anyevent => 1,
-                    cb => sub {
-                        my (undef, $res) = @_;
-                        my $json = json_bytes2perl $res->content;
-                        $done->($timer->elapsed_time > 4, $json);
-                    };
-            },
-            on_end => sub {
-                my ($result, $json) = @_;
-                test {
-                    is $json->{repository}->{url}, $repo_d->stringify;
-                    is $json->{operation}->{status}, 2;
-                    done $c;
-                    undef $c;
-                    undef $timer;
-                } $c;
-            },
-        );
-    });
-} wait => Test::Cennel::Server->create_as_cv(config => {
-    'cennel.filter.not_role_names' => 'devel1',
-}), name => 'role not match', n => 4;
+}) }, name => 'role not match', n => 4;
 
 run_tests;
 Test::Cennel::GWServer->stop_server_as_cv->recv;
