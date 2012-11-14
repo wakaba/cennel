@@ -15,7 +15,7 @@ sub per_page {
     if (@_ > 1) {
         $_[0]->{per_page} = $_[1];
     }
-    return 100;
+    return $_[0]->{per_page} || 100;
 }
 
 sub load_recent_operations {

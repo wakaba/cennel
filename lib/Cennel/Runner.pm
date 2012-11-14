@@ -262,6 +262,7 @@ sub process_http {
         $app->requires_basic_auth({api_key => $self->web_api_key});
         require Cennel::Loader::OperationList;
         my $loader = Cennel::Loader::OperationList->new_from_dbreg($self->dbreg);
+        $loader->per_page($app->bare_param('per_page'));
         $loader->load_recent_operations;
         $app->send_json($loader->as_jsonable);
         return $app->throw;
