@@ -140,10 +140,23 @@ sub open_record_as_cv {
 sub check_preconditions_as_cv {
     my $self = shift;
     my $cv = AE::cv;
-
-    # XXX $cv->send({failed => 1, retry => 1, phase => 'check_preconditions'});
-
-    $cv->send({});
+    my $ops_db = $self->dbreg->load('cennelops');
+    my $results = $ops_db->select(
+        'operation_unit',
+        {
+            operation_unit_id => {'!=', $self->operation_unit_id},
+            operation_id => $self->operation->operation_id,
+            status => {-in => [OPERATION_UNIT_STATUS_STARTED, OPERATION_UNIT_STATUS_SUCCEEDED]},
+        },
+        field => 'status',
+    )->all->map(sub { $_->{status} });
+    # XXX race condition?
+    if ($results->grep(sub { $_ == OPERATION_UNIT_STATUS_STARTED })->length == 1 and
+        $results->grep(sub { $_ == OPERATION_UNIT_STATUS_SUCCEEDED })->length == 0) {
+        $cv->send({failed => 1, retry => 1, phase => 'check_preconditions'});
+    } else {
+        $cv->send({});
+    }
     return $cv;
 }
 
