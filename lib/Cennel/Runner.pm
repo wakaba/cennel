@@ -195,6 +195,7 @@ sub process_as_cv {
 sub run_httpd {
     my $self = shift;
     my $httpd = AnyEvent::HTTPD->new(port => $self->web_port);
+    $self->log("Starting HTTP server (port @{[$self->web_port]})...");
     $httpd->reg_cb(request => sub {
         my ($httpd, $req) = @_;
         my $http = Wanage::HTTP->new_from_anyeventhttpd_httpd_and_req($httpd, $req);
@@ -298,7 +299,9 @@ sub process_http {
 }
 
 sub discard_httpd {
-    delete $_[0]->{httpd};
+    my $self = shift;
+    $self->log("Stopping HTTP server...");
+    delete $self->{httpd};
 }
 
 1;
