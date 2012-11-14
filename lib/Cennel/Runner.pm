@@ -147,8 +147,6 @@ sub process_as_cv {
     my $schedule_sleep;
     my $sleeping = 1;
 
-    $self->fork_httpd_process;
-
     $cv->begin;
     $self->wait_child_processes_as_cv->cb(sub {
         $cv->end;
@@ -229,8 +227,10 @@ sub fork_httpd_process {
     if ($pid) { # parent
         $self->{httpd_pids}->{$pid} = 1;
         $self->log("HTTP server process forked ($pid)");
+        return 1;
     } elsif (defined $pid) { # child
         $self->run_httpd;
+        return 0;
     } else {
         die "Can't fork";
     }

@@ -4,6 +4,7 @@ use Path::Class;
 use lib glob file(__FILE__)->dir->parent->parent->subdir('t_deps', 'lib')->stringify;
 use Test::Cennel;
 use Test::Cennel::GWServer;
+use AnyEvent::Timer::Retry;
 
 Test::Cennel::GWServer->start_server_as_cv->recv;
 $Test::Cennel::Server::GWServerHost = Test::Cennel::GWServer->server_host;
@@ -38,7 +39,7 @@ test {
             data => sprintf q{
                 package My::Package;
                 sub run {
-                    my ($class, %args) = @_;
+                    my ($class, %%args) = @_;
                     my $temp_dir_name = '%s';
                     my $file_name = "$temp_dir_name/$args{host_name}";
                     if ($args{host_name} eq 'host1.localdomain') {
@@ -81,32 +82,37 @@ test {
 
     my $cv2 = AE::cv;
     $cv1->cb(sub {
-        my $timer; $timer = AE::timer 4, 0, sub {
-            test {
+        my $timer; $timer = AnyEvent::Timer::Retry->new(
+            on_retry => sub {
+                my $done = shift;
                 http_get
                     url => qq<http://localhost:$port/operation/$op_id.json>,
                     basic_auth => [api_key => $data->web_api_key],
                     anyevent => 1,
                     cb => sub {
                         my (undef, $res) = @_;
-                        test {
-                            my $json = json_bytes2perl $res->content;
-                            is $json->{repository}->{url}, $repo_d->stringify;
-                            is scalar keys %{$json->{units}}, 2;
-                            is_deeply [sort { $a cmp $b } map { $_->{host}->{name} } values %{$json->{units}}], [qw(host1.localdomain host2.localdomain)];
-                            my $id1 = [grep { $json->{units}->{$_}->{host}->{name} eq 'host1.localdomain' } keys %{$json->{units}}]->[0];
-                            my $id2 = [grep { $json->{units}->{$_}->{host}->{name} eq 'host2.localdomain' } keys %{$json->{units}}]->[0];
-                            is $json->{units}->{$id1}->{status}, 3;
-                            is $json->{units}->{$id2}->{status}, 6;
-                            is $json->{operation}->{status}, 3, 'global status';
-                            ok !-f $temp_d->file('host1.localdomain');
-                            ok !-f $temp_d->file('host2.localdomain');
-                            $cv2->send;
-                        } $c;
+                        my $json = json_bytes2perl $res->content;
+                        $done->($json->{operation}->{status} == 3, $json);
                     };
-            } $c;
-            undef $timer;
-        };
+            },
+            on_end => sub {
+                my ($result, $json) = @_;
+                test {
+                    is $json->{repository}->{url}, $repo_d->stringify;
+                    is scalar keys %{$json->{units}}, 2;
+                    is_deeply [sort { $a cmp $b } map { $_->{host}->{name} } values %{$json->{units}}], [qw(host1.localdomain host2.localdomain)];
+                    my $id1 = [grep { $json->{units}->{$_}->{host}->{name} eq 'host1.localdomain' } keys %{$json->{units}}]->[0];
+                    my $id2 = [grep { $json->{units}->{$_}->{host}->{name} eq 'host2.localdomain' } keys %{$json->{units}}]->[0];
+                    is $json->{units}->{$id1}->{status}, 3;
+                    is $json->{units}->{$id2}->{status}, 6;
+                    is $json->{operation}->{status}, 3, 'global status';
+                    ok !-f $temp_d->file('host1.localdomain');
+                    ok !-f $temp_d->file('host2.localdomain');
+                    $cv2->send;
+                    undef $timer;
+                } $c;
+            },
+        );
     });
 
     $cv2->cb(sub {
