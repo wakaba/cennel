@@ -103,7 +103,7 @@ sub process_next_as_cv {
         } else {
             $job_action->complete_job($job);
         }
-        if ($result->{failed}) {
+        if ($result->{failed} and not $result->{retry}) {
             $job_action->skip_remaining_jobs($job->{operation_id});
         }
         if ($job_action->no_more_job_for($job->{operation_id})) {
