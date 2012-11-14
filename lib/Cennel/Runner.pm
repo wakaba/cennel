@@ -147,19 +147,7 @@ sub process_as_cv {
     my $schedule_sleep;
     my $sleeping = 1;
 
-    my $httpd = AnyEvent::HTTPD->new(port => $self->web_port);
-    $httpd->reg_cb(request => sub {
-        my ($httpd, $req) = @_;
-        my $http = Wanage::HTTP->new_from_anyeventhttpd_httpd_and_req($httpd, $req);
-        $self->log($http->client_ip_addr->as_text . ': ' . $http->request_method . ' ' . $http->url->stringify);
-        my $app = Cennel::Warabe::App->new_from_http($http);
-        $http->send_response(onready => sub {
-            $app->execute (sub {
-                $self->process_http($app);
-            });
-        });
-        $httpd->stop_request;
-    });
+    $self->run_httpd;
 
     $schedule_test = sub {
         $sleeping = 0;
@@ -189,7 +177,7 @@ sub process_as_cv {
             if ($sleeping) {
                 $schedule_end->();
                 undef $signal;
-                undef $httpd;
+                $self->discard_httpd;
             } else {
                 $schedule_test = $schedule_sleep = $schedule_end;
                 $sleeping = 1; # for second kill
@@ -200,6 +188,26 @@ sub process_as_cv {
     $schedule_test->();
 
     return $cv;
+}
+
+# ------ HTTP server ------
+
+sub run_httpd {
+    my $self = shift;
+    my $httpd = AnyEvent::HTTPD->new(port => $self->web_port);
+    $httpd->reg_cb(request => sub {
+        my ($httpd, $req) = @_;
+        my $http = Wanage::HTTP->new_from_anyeventhttpd_httpd_and_req($httpd, $req);
+        $self->log($http->client_ip_addr->as_text . ': ' . $http->request_method . ' ' . $http->url->stringify);
+        my $app = Cennel::Warabe::App->new_from_http($http);
+        $http->send_response(onready => sub {
+            $app->execute (sub {
+                $self->process_http($app);
+            });
+        });
+        $httpd->stop_request;
+    });
+    $self->{httpd} = $httpd;
 }
 
 sub process_http {
@@ -287,6 +295,10 @@ sub process_http {
     }
     
     return $app->throw_error(404);
+}
+
+sub discard_httpd {
+    delete $_[0]->{httpd};
 }
 
 1;
