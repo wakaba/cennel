@@ -104,11 +104,27 @@ sub send_signal_to_children {
 
 # ------ Cennel command runner ------
 
+sub fork_commands_process {
+    my $self = shift;
+    my $pid = fork;
+    if ($pid) { # parent
+        $self->{commands_pids}->{$pid} = 1;
+        $self->log("Commands process forked ($pid)");
+        return 1;
+    } elsif (defined $pid) { # child
+        delete $self->{commands_pids};
+        $self->run_httpd;
+        return 0;
+    } else {
+        die "Can't fork";
+    }
+}
+
 sub interval {
     return 2;
 }
 
-sub process_as_cv {
+sub process_commands_as_cv {
     my $self = shift;
     
     my $cv = AE::cv;
